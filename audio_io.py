@@ -24,7 +24,7 @@ def save_audio(path: str | Path, signal: np.ndarray, fs: int):
     path.parent.mkdir(parents = True, exist_ok = True) #parents creates all missing parent directories, exist_ok to stop throwing errors if it already exists
     sf.write(str(Path), signal, fs)
 
-def resample_audio(x: np.ndarray, fs: int, target_fs: int):
+def resample_audio(x: np.ndarray, fs: int, target_fs: int) -> np.ndarray:
     if fs == target_fs:
         return x.copy()
     
@@ -39,6 +39,19 @@ def resample_audio(x: np.ndarray, fs: int, target_fs: int):
     for ch in range(x.shape[1]): # x.shape[1] loops through each of the channels. So it loops twice if stereo.
         channels.append(resample_poly(x[:, ch], up, down)) # resampling one channel at a time. Output would be channels = [resampled_ch0, resampled_ch1], which is a list
     return np.stack(channels, axis = 1).astype(np.float64) # Converts the list into a matrix. 
+
+    def normalize_signal(x: np.ndarray, peak: float = 0.999) -> np.ndarray:
+        max_val = np.max(np.abs(x))
+
+        if max_val < 1e-12: # If signal is practically 0, we have to avoid dividing by 0. Just return the original signal.
+            return x.copy()
+        
+        return (x/max_val) * peak
+    
+    def check_clipping(x: np.ndarray, thresh: float = 0.999) -> bool:
+        return bool(np.any(np.abs(x)) >= thresh)        
+
+
 
     
 
