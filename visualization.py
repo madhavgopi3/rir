@@ -28,5 +28,17 @@ def plot_spectrogram(signal: np.ndarray, fs: int, title: str):
     plt.grid(True, alpha = 0.3)
     plt.tight_layout()
 
+def plot_edc(edc: np.ndarray, fs: int, title: str = "Energy Decay Curve"):
+    t = np.arange(len(edc))/fs
+    edc_db = 10 * np.log10(edc + 1e-12)
+
+    plt.figure(figsize=[10,4])
+    plt.plot(t, edc, linewidth = 0.8)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Level [dB]")
+    plt.title(title)
+    plt.grid(True, alpha = 0.3)
+    plt.tight_layout
+
 def show_all():
     plt.show()
