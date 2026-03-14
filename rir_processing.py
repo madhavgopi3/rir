@@ -33,8 +33,8 @@ def normalize_rir(h: np.ndarray, peak: float = 0.999) -> np.ndarray:
 def energy_curve(h: np.ndarray) -> np.ndarray:
 
     energy = h ** 2 # Energy = impulse squared.
-    edc = np.cumsum(h[::-1])[::-1] #Cumulative sum from the back. And then reverse it
-    edc /= np.max(h) + 1e-12
+    edc = np.cumsum(energy[::-1])[::-1] #Cumulative sum from the back. And then reverse it
+    edc /= np.max(edc) + 1e-12
     return edc
 
 def to_db(x: np.ndarray, floor_db: float = -120.0) -> np.ndarray: 
