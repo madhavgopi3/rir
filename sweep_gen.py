@@ -13,7 +13,7 @@ def generate_log_sweep(
     #Farina's exponential sine sweep
 
     L = duration/np.log(f_end/f_start)
-    phase = 2.0 * np.pi * f_start * L * (np.exp^(t/L) - 1)
+    phase = 2.0 * np.pi * f_start * L * (np.exp(t/L) - 1.0)
     sweep = amplitude * np.sin(phase)
 
     return sweep.astype(np.float64)
@@ -30,8 +30,8 @@ def generate_inverse_sweep(
     t = np.linspace(0.0, duration, n, endpoint= False)
 
     #Amplitude correction for exponential sweep filter
-    envelope = np.exp(t * np.ln(f_end/f_start)/duration)
-    inverse = sweep[::1]/envelope
+    envelope = np.exp(t * np.log(f_end/f_start)/duration)
+    inverse = sweep[::-1]/envelope
 
     return inverse.astype(np.float64)
 

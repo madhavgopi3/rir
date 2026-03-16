@@ -22,7 +22,7 @@ def load_audio(path: str | Path, target_fs = None | int, mono: bool = True):
 def save_audio(path: str | Path, signal: np.ndarray, fs: int):
     path = Path(path)
     path.parent.mkdir(parents = True, exist_ok = True) #parents creates all missing parent directories, exist_ok to stop throwing errors if it already exists
-    sf.write(str(Path), signal, fs)
+    sf.write(str(path), signal, fs)
 
 def resample_audio(x: np.ndarray, fs: int, target_fs: int) -> np.ndarray:
     if fs == target_fs:
