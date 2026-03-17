@@ -12,11 +12,11 @@ class MeasurementConfig:
     pre_silence: float = 0.5
     post_silence: float = 2.0
 
-    rir_pre_trim_ms = 5.0
-    rir_post_trim_ms = 1500
+    rir_pre_trim_ms: float = 5.0
+    rir_post_trim_ms: float = 1500.0
 
     output_dir: Path = Path("output")
-    recorded_sweep: Path = Path("recorded_sweep.wav")
+    recorded_sweep_path: Path = Path("recorded/1.wav")
     
     generated_sweep_name: str = "generated_sweep.wav"
     padded_sweep_name: str = "padded_generated_sweep.wav"

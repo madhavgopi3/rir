@@ -37,6 +37,10 @@ def energy_curve(h: np.ndarray) -> np.ndarray:
     edc /= np.max(edc) + 1e-12
     return edc
 
-def to_db(x: np.ndarray, floor_db: float = -120.0) -> np.ndarray: 
-    x_db = 20 * np.log10(np.maximum(abs(x), 1e-12)) #np.maximum compares two arrays element by element and keeps the larger one at each position.
+def amplitude_to_db(x: np.ndarray, floor_db: float = -120.0) -> np.ndarray: 
+    x_db = 20 * np.log10(np.maximum(np.abs(x), 1e-12)) #np.maximum compares two arrays element by element and keeps the larger one at each position.
+    return np.maximum(x_db, floor_db)
+
+def energy_to_db(x: np.ndarray, floor_db: float = -120.0) -> np.ndarray:
+    x_db = 10.0 * np.log10(np.maximum(x, 1e-12))
     return np.maximum(x_db, floor_db)

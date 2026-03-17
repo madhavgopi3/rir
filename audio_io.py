@@ -5,7 +5,7 @@ from scipy.signal import resample_poly
 import soundfile as sf
 import numpy as np
 
-def load_audio(path: str | Path, target_fs = None | int, mono: bool = True):
+def load_audio(path: str | Path, target_fs: int | None = None, mono: bool = True):
     
     x, fs = sf.read(str(path), dtype = np.float64, always_2d = False)
     x = np.asarray(x, dtype=np.float64)
@@ -40,7 +40,7 @@ def resample_audio(x: np.ndarray, fs: int, target_fs: int) -> np.ndarray:
         channels.append(resample_poly(x[:, ch], up, down)) # resampling one channel at a time. Output would be channels = [resampled_ch0, resampled_ch1], which is a list
     return np.stack(channels, axis = 1).astype(np.float64) # Converts the list into a matrix. 
 
-def normalize_signal(x: np.ndarray, peak: float = 0.999) -> np.ndarray:
+def normalize_for_saving(x: np.ndarray, peak: float = 0.999) -> np.ndarray:
     max_val = np.max(np.abs(x))
 
     if max_val < 1e-12: # If signal is practically 0, we have to avoid dividing by 0. Just return the original signal.
@@ -49,7 +49,7 @@ def normalize_signal(x: np.ndarray, peak: float = 0.999) -> np.ndarray:
     return (x/max_val) * peak
     
 def check_clipping(x: np.ndarray, thresh: float = 0.999) -> bool:
-    return bool(np.any(np.abs(x)) >= thresh)        
+    return bool(np.any(np.abs(x) >= thresh))      
 
 
 

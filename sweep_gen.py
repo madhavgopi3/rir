@@ -2,7 +2,7 @@ import numpy as np
 
 def generate_log_sweep(
         fs: int,
-        duration: int,
+        duration: float,
         f_start: int,
         f_end: int,
         amplitude: float = 0.8
@@ -21,7 +21,7 @@ def generate_log_sweep(
 def generate_inverse_sweep(
         sweep: np.ndarray,
         fs: int,
-        duration: int,
+        duration: float,
         f_start: int,
         f_end: int
 ) -> np.ndarray:
