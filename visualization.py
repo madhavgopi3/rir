@@ -13,6 +13,19 @@ def plot_waveform(signal: np.ndarray, fs: int, title: str):
     plt.grid(True, alpha = 0.3)
     plt.tight_layout()
 
+def plot_together(signal: np.ndarray, signal2: np.ndarray, fs: int, title: str):
+    t = np.arange(len(signal)) / fs
+    
+    plt.figure(figsize=[10,4])
+    plt.plot(t, signal, linestyle='--', linewidth = 0.8)
+    plt.plot(t, signal2 + 0.1, linestyle='-', linewidth = 0.8)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Amplitude")
+    plt.title(title)
+    plt.grid(True, alpha = 0.3)
+    plt.tight_layout()
+    plt.show()
+
 #Now same as plot_waveform. Make changes if needed in the future.
 def plot_rir(signal: np.ndarray, fs: int, title: str):
     plot_waveform(signal, fs, title)

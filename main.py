@@ -11,7 +11,7 @@ from alignment import extract_aligned_segment
 from deconvolution import extract_rir
 from rir_processing import energy_curve, normalize_rir, trim_peak
 from visualization import (
-    plot_rir, plot_spectrogram, plot_waveform, plot_edc, show_all
+    plot_rir, plot_spectrogram, plot_waveform, plot_edc, plot_together, show_all
 )
 
 
@@ -24,7 +24,7 @@ def ask_user_option() -> str:
 
     choice = input("Enter your choice: ").strip()
 
-    while choice not in {"1", "2", "3"}:
+    while choice not in {"1", "2", "3", "4"}:
         choice = input("Enter a valid choice 1/2/3: ").strip()
     
     return choice
@@ -138,6 +138,10 @@ def visualize_full(cfg, raw_sweep, recorded, rir_raw, rir_trimmed_norm):
     plot_edc(edc, cfg.fs, "Energy Decay Curve")
     show_all()
 
+def visualize_together(cfg, raw_sweep):
+    sweep2, fs_rec = load_audio(cfg.generated_sweep_name2, target_fs=cfg.fs, mono=True)
+    plot_together(raw_sweep, sweep2, cfg.fs, "Sine sweeps together")
+
 #------------------------------------------------------------
 # MAIN DRIVER
 #------------------------------------------------------------
@@ -171,6 +175,11 @@ def main():
         )
 
         visualize_full(cfg, raw_sweep, recorded, rir_raw, rir_trimmed_norm)
+
+    elif choice =="4":
+        raw_sweep, padded_sweep, inverse_filter = generate_sweep_files(cfg)
+        visualize_together(cfg, raw_sweep)
+
 
 if __name__ == "__main__":
     main()

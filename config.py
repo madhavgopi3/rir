@@ -19,6 +19,7 @@ class MeasurementConfig:
     recorded_sweep_path: Path = Path("recorded/1.wav")
     
     generated_sweep_name: str = "generated_sweep.wav"
+    generated_sweep_name2: str = "generated_sweep2.wav"
     padded_sweep_name: str = "padded_generated_sweep.wav"
     inverse_sweep_name: str = "inverse_sweep.wav"
     rir_name: str = "rir.wav"
