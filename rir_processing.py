@@ -90,6 +90,19 @@ def robust_peak_finder(x: np.ndarray,
     if len(candidates) == 0:
         peak_idx = int(np.argmax(envelope))
         return peak_idx, envelope
+    
+    start_local_idx = start_index + int(candidates[0]) # Index of the starting of the first crossing above threshold.
+
+    # Refine a window of 2 ms after first crossing
+    # 2ms because direct sound is quick. Reflections come later.
+    refine_length_ms = 2.0
+    refine_length_samples = max(1, int((refine_length_ms/1000.0) * fs))
+    end_local_index = min(len(candidates), start_local_idx + refine_length_samples)
+
+    local_peak_index = np.argmax(envelope[start_local_idx:end_local_index])
+    peak_idx = start_index + int(local_peak_index)
+
+    return peak_idx, envelope
 
 
     
