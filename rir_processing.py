@@ -53,7 +53,7 @@ def smooth_signal(x: np.ndarray, window_length_samples: int) -> np.ndarray:
 
 # Function to estimate noise from the end of the RIR. tail_fraction specifies the fraction of signal for consideration
 # Returns noise in rms and db
-def estimate_noise_floor(x: np.ndarray, tail_fraction: float = 0.1) -> tuple[float, float]:
+def compute_noise_floor(x: np.ndarray, tail_fraction: float = 0.1) -> tuple[float, float]:
     n = len(x)
     tail_samples = max(1, int(tail_fraction * n))
     tail = x[-tail_samples:]
@@ -79,7 +79,7 @@ def robust_peak_finder(x: np.ndarray,
                        search_start_index: int = 0) -> tuple[int, np.ndarray]:
     
     envelope = compute_envelope(x, fs = fs, smooth_ms = smooth_ms)
-    _, noise_db = estimate_noise_floor(x)
+    _, noise_db = compute_noise_floor(x)
     env_db = 20 * np.log10(envelope + 1e-12)
 
     threshold_db = noise_db + threshold_over_noise_db # Detection threshold. If noise is -60 dB and TONdB is 15, all values above -45 dB will be considered.
@@ -103,6 +103,50 @@ def robust_peak_finder(x: np.ndarray,
     peak_idx = start_index + int(local_peak_index)
 
     return peak_idx, envelope
+
+# Find the end where the envelope falls back near the noise floor.
+# Returns end sample index (of useful signal)
+
+"""
+SEARCH AREA: The place from the required audio peak + we add a random 300ms area. peak_idx + min_tail_samples
+CANDIDATES: Indices in SEARCH AREA where the value falls below noise_db
+end_idx = Place where we think the noise floor is hit + safety_offset_samples
+"""
+
+def find_noisefloor_at_end(
+    x: np.ndarray,
+    fs: int,
+    peak_idx: int,
+    envelope: np.ndarray | None = None,
+    min_tail_ms: float = 300.0,
+    smooth_ms: float = 5.0,
+    safety_offset_ms = 30.0
+) -> int:
+    
+    if envelope == None:
+        envelope = compute_envelope(x, fs = fs, smooth_ms = smooth_ms)
+    
+    _, noise_db = compute_noise_floor(x)
+    envelope_db = 20 * np.log10(envelope + 1e-12)
+
+    min_tail_samples = max(1, int((min_tail_ms/1000) * fs))
+    search_start_idx = min(len(x) - 1, peak_idx + min_tail_samples) # Peak of audio signal + we add a buffer from where to start searching for the noise
+    candidates = np.where(envelope_db[search_start_idx:] <= noise_db)[0] # Filter out the indices where the signal falls below noise floor.
+
+    if len(candidates) == 0: # If there is no noise tail at the end of the signal
+        return len(x) # Returns the last index of the signal itself
+    
+    # A small offset to ensure the tail is not cut aggressively.
+    safety_offset_samples = int((safety_offset_ms/1000) * fs)
+    end_idx = min(len(x), search_start_idx + candidates[0] + safety_offset_samples)
+
+    return int(end_idx)
+
+
+
+    
+
+
 
 
     
