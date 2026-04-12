@@ -63,6 +63,7 @@ def compute_noise_floor(x: np.ndarray, tail_fraction: float = 0.1) -> tuple[floa
 
 # Hilbert transform + call smoothing
 # smooth_ms = Smoothing window in milliseconds
+# We make a moving average filter. (Defined in smooth_signal()) Light filtering because smooth_ms = 1ms. Higher value, heavy smoothing.
 def compute_envelope(x: np.ndarray, fs: int, smooth_ms: float = 1.0):
     hilb_sig = hilbert(x)
     envelope = np.abs(hilb_sig)
@@ -78,8 +79,8 @@ def robust_peak_finder(x: np.ndarray,
                        smooth_ms: float = 1.0,
                        search_start_index: int = 0) -> tuple[int, np.ndarray]:
     
-    envelope = compute_envelope(x, fs = fs, smooth_ms = smooth_ms)
-    _, noise_db = compute_noise_floor(x)
+    envelope = compute_envelope(x = x, fs = fs, smooth_ms = smooth_ms)
+    _, noise_db = compute_noise_floor(x = x)
     env_db = 20 * np.log10(envelope + 1e-12)
 
     threshold_db = noise_db + threshold_over_noise_db # Detection threshold. If noise is -60 dB and TONdB is 15, all values above -45 dB will be considered.
@@ -108,12 +109,13 @@ def robust_peak_finder(x: np.ndarray,
 # Returns end sample index (of useful signal)
 
 """
+EDITABLES: min_tail_ms, safety_offset_ms
 SEARCH AREA: The place from the required audio peak + we add a random 300ms area. peak_idx + min_tail_samples
 CANDIDATES: Indices in SEARCH AREA where the value falls below noise_db
 end_idx = Place where we think the noise floor is hit + safety_offset_samples
 """
 
-def find_noisefloor_at_end(
+def find_noise_limitied_end(
     x: np.ndarray,
     fs: int,
     peak_idx: int,
@@ -121,10 +123,10 @@ def find_noisefloor_at_end(
     min_tail_ms: float = 300.0,
     smooth_ms: float = 5.0,
     safety_offset_ms = 30.0
-) -> int:
+) -> int: 
     
     if envelope == None:
-        envelope = compute_envelope(x, fs = fs, smooth_ms = smooth_ms)
+        envelope = compute_envelope(x = x, fs = fs, smooth_ms = smooth_ms)
     
     _, noise_db = compute_noise_floor(x)
     envelope_db = 20 * np.log10(envelope + 1e-12)
@@ -141,6 +143,62 @@ def find_noisefloor_at_end(
     end_idx = min(len(x), search_start_idx + candidates[0] + safety_offset_samples)
 
     return int(end_idx)
+
+# This functions ties all the peak finding logic together
+# Returns: trimmed_rir, start_idx, end_idx, peak_idx, envelope
+
+def trim_rir_robust(
+        x: np.ndarray,
+        fs: int,
+        pre_ms: float = 5.0,
+        post_ms: float = 300.0,
+        min_tail_ms: float = 300.0,
+        threshold_over_noise_db: float = 15.0,
+        arrival_smooth_ms: float = 1.0,
+        tail_smooth_ms: float = 5.0,
+        safety_offset_ms = 30.0
+) -> tuple[np.ndarray, int, int, int, np.ndarray]:
+    
+    peak_idx, _ = robust_peak_finder(
+        x = x, 
+        fs = fs, 
+        threshold_over_noise_db = threshold_over_noise_db, 
+        smooth_ms = arrival_smooth_ms)
+    
+    pre_samples = int((pre_ms/1000) * fs)
+    start_idx = max(0, peak_idx - pre_samples)
+
+    tail_envelope = compute_envelope(x = x, fs = fs, smooth_ms= tail_smooth_ms) # Computes another envelope for tail analysis. This one is much smoother cuz of higher smooth_ms value.
+
+    end_idx = find_noise_limitied_end(
+        x = x,
+        fs = fs,
+        peak_idx=peak_idx,
+        envelope=tail_envelope
+        min_tail_ms=min_tail_ms,
+        safety_offset_ms=safety_offset_ms
+    )
+
+    #Safety check if something goes wrong
+    if end_idx<=start_idx:
+        end = min(len(x), peak_idx+int(min_tail_ms*fs)) # keep min_tail_ms of the RIR after peak
+
+    trimmed = x[start_idx:end_idx]
+    return trimmed, start_idx, end_idx, peak_idx, tail_envelope 
+""" 
+We return the tail_envelope for:
+decay analysis
+RT60
+plotting
+noise floor comparison
+"""
+
+    
+
+
+    
+
+
 
 
 
