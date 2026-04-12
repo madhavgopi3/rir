@@ -9,7 +9,7 @@ from audio_io import (
 )
 from alignment import extract_aligned_segment
 from deconvolution import extract_rir
-from rir_processing import energy_curve, normalize_rir, trim_peak
+from rir_processing import energy_curve, normalize_rir, trim_rir_robust
 from visualization import (
     plot_rir, plot_spectrogram, plot_waveform, plot_edc, plot_together, show_all
 )
@@ -21,11 +21,12 @@ def ask_user_option() -> str:
     print("1 - Generate sweep and inverse filter")
     print("2 - Process recorded file and extract RIR")
     print("3 - Visualize all")
+    print("4 - Compare 2 sine sweeps")
 
     choice = input("Enter your choice: ").strip()
 
     while choice not in {"1", "2", "3", "4"}:
-        choice = input("Enter a valid choice 1/2/3: ").strip()
+        choice = input("Enter a valid choice 1/2/3/4: ").strip()
     
     return choice
 
@@ -87,12 +88,16 @@ def process_recording(cfg: MeasurementConfig, padded_sweep, inverse_filter):
 
     # Extract RIR
     rir_raw = extract_rir(aligned_active, inverse_filter)
-    rir_trimmed, trim_start, trim_end = trim_peak(
+    rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
         rir_raw,
         fs=cfg.fs,
         pre_ms=cfg.rir_pre_trim_ms,
-        post_ms=cfg.rir_post_trim_ms
-        )
+        min_tail_ms = cfg.rir_min_tail_ms,
+        threshold_over_noise_db = cfg.threshold_over_noise_db,
+        arrival_smooth_ms = cfg.arrival_smooth_ms,
+        tail_smooth_ms = cfg.tail_smooth_ms,
+        safety_offset_ms = cfg.safety_offset_ms
+    )
     
     rir_trimmed_norm = normalize_rir(rir_trimmed)
 
@@ -116,6 +121,11 @@ def process_recording(cfg: MeasurementConfig, padded_sweep, inverse_filter):
     "trim_end_sample": int(trim_end),
     "trimmed_rir_length_samples": int(len(rir_trimmed_norm)),
     "trimmed_rir_length_seconds": float(len(rir_trimmed_norm) / cfg.fs),
+
+    "direct_peak_sample": peak_idx,
+    "direct_peak_seconds": peak_idx / cfg.fs,
+    "rir_min_tail_ms": cfg.rir_min_tail_ms,
+    "direct_threshold_above_noise_db": cfg.threshold_over_noise_db,
 }
 
     with open(cfg.output_dir/"metadata.json", "w", encoding="utf-8") as f:

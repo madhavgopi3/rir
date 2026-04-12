@@ -151,12 +151,11 @@ def trim_rir_robust(
         x: np.ndarray,
         fs: int,
         pre_ms: float = 5.0,
-        post_ms: float = 300.0,
         min_tail_ms: float = 300.0,
         threshold_over_noise_db: float = 15.0,
         arrival_smooth_ms: float = 1.0,
         tail_smooth_ms: float = 5.0,
-        safety_offset_ms = 30.0
+        safety_offset_ms: float = 30.0
 ) -> tuple[np.ndarray, int, int, int, np.ndarray]:
     
     peak_idx, _ = robust_peak_finder(
