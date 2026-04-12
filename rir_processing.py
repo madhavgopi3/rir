@@ -115,7 +115,7 @@ CANDIDATES: Indices in SEARCH AREA where the value falls below noise_db
 end_idx = Place where we think the noise floor is hit + safety_offset_samples
 """
 
-def find_noise_limitied_end(
+def find_noise_limited_end(
     x: np.ndarray,
     fs: int,
     peak_idx: int,
@@ -170,14 +170,14 @@ def trim_rir_robust(
 
     tail_envelope = compute_envelope(x = x, fs = fs, smooth_ms= tail_smooth_ms) # Computes another envelope for tail analysis. This one is much smoother cuz of higher smooth_ms value.
 
-    end_idx = find_noise_limitied_end(
+    end_idx = find_noise_limited_end(
         x = x,
         fs = fs,
         peak_idx=peak_idx,
-        envelope=tail_envelope
+        envelope=tail_envelope,
         min_tail_ms=min_tail_ms,
         safety_offset_ms=safety_offset_ms
-    )
+        )
 
     #Safety check if something goes wrong
     if end_idx<=start_idx:
