@@ -2,7 +2,7 @@ from config import MeasurementConfig
 from pathlib import Path
 import json
 from sweep_gen import (
-    generate_log_sweep, generate_inverse_sweep, normalize_peak, pad_signal
+    generate_log_sweep, generate_inverse_filter, normalize_peak, pad_signal
 )
 from audio_io import (
     load_audio, save_audio, normalize_for_saving, check_clipping
@@ -13,6 +13,7 @@ from rir_processing import energy_curve, normalize_rir, trim_rir_robust
 from visualization import (
     plot_rir, plot_spectrogram, plot_waveform, plot_edc, plot_together, show_all
 )
+from external_sweep import extract_rir, load_external_sweep, rir_from_external_sweep
 
 
 
@@ -54,7 +55,7 @@ def generate_sweep_files(cfg: MeasurementConfig):
         post_silence=cfg.post_silence
         )
 
-    inverse_sweep = generate_inverse_sweep(
+    inverse_sweep = generate_inverse_filter(
         sweep=raw_sweep,
         fs=cfg.fs,
         duration=cfg.sweep_duration,
@@ -124,8 +125,8 @@ def process_recording(cfg: MeasurementConfig, padded_sweep, inverse_filter):
 
     "direct_peak_sample": peak_idx,
     "direct_peak_seconds": peak_idx / cfg.fs,
-    "rir_min_tail_ms": cfg.rir_min_tail_ms,
-    "direct_threshold_above_noise_db": cfg.threshold_over_noise_db,
+    "rir_min_tail_ms": str(cfg.rir_min_tail_ms),
+    "direct_threshold_above_noise_db": str(cfg.threshold_over_noise_db),
 }
 
     with open(cfg.output_dir/"metadata.json", "w", encoding="utf-8") as f:
@@ -148,9 +149,49 @@ def visualize_full(cfg, raw_sweep, recorded, rir_raw, rir_trimmed_norm):
     plot_edc(edc, cfg.fs, "Energy Decay Curve")
     show_all()
 
+#------------------------------------------------------------
+# 4. Compare 2 sine sweeps
+#------------------------------------------------------------    
+
 def visualize_together(cfg, raw_sweep):
     sweep2, fs_rec = load_audio(cfg.generated_sweep_name2, target_fs=cfg.fs, mono=True)
     plot_together(raw_sweep, sweep2, cfg.fs, "Sine sweeps together")
+
+#------------------------------------------------------------
+# 5. External Sine Sweep & Inverse Filter
+#------------------------------------------------------------    
+def external_sweep_rir(cfg):
+
+    result = rir_from_external_sweep(
+    sweep_path=cfg.external_sweep_path,
+    recorded_path=cfg.recorded_sweep_path2,
+    f_start=50.0,
+    f_end=22000.0,
+    target_fs=cfg.fs,
+    mono=True,
+)
+    sweep_for_plot = result["sweep"]
+    recorded = result["recorded"]
+    inverse_filter = result["inverse_filter"]
+    lag = result["lag"]
+    rir_raw = result["rir_raw"]
+    clipped = check_clipping(recorded)
+
+    save_audio(cfg.output_dir / cfg.inverse_filter_filename, normalize_peak(inverse_filter), result["fs"])
+
+    
+    rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
+        rir_raw,
+        fs=result["fs"],
+        pre_ms=cfg.rir_trim_pre_ms,
+        min_tail_ms=cfg.rir_min_tail_ms,
+        threshold_above_noise_db=cfg.direct_threshold_above_noise_db,
+        noise_margin_db=cfg.trim_noise_margin_db,
+        arrival_smooth_ms=cfg.arrival_smooth_ms,
+        tail_smooth_ms=cfg.tail_smooth_ms,
+)
+    
+
 
 #------------------------------------------------------------
 # MAIN DRIVER
@@ -189,6 +230,9 @@ def main():
     elif choice =="4":
         raw_sweep, padded_sweep, inverse_filter = generate_sweep_files(cfg)
         visualize_together(cfg, raw_sweep)
+    
+    elif choice =="5":
+
 
 
 if __name__ == "__main__":

@@ -61,10 +61,13 @@ def compute_noise_floor(x: np.ndarray, tail_fraction: float = 0.1) -> tuple[floa
     noise_db = 20 * np.log10(noise_rms + 1e-12)
     return float(noise_rms), float(noise_db)
 
+##################################################################################
+
+
 # Hilbert transform + call smoothing
 # smooth_ms = Smoothing window in milliseconds
 # We make a moving average filter. (Defined in smooth_signal()) Light filtering because smooth_ms = 1ms. Higher value, heavy smoothing.
-def compute_envelope(x: np.ndarray, fs: int, smooth_ms: float = 1.0):
+def compute_envelope(x: np.ndarray, fs: int, smooth_ms: float = 1.0) -> np.ndarray:
     hilb_sig = hilbert(x)
     envelope = np.abs(hilb_sig)
     win = max(1, int(smooth_ms/1000 * fs))
@@ -98,12 +101,14 @@ def robust_peak_finder(x: np.ndarray,
     # 2ms because direct sound is quick. Reflections come later.
     refine_length_ms = 2.0
     refine_length_samples = max(1, int((refine_length_ms/1000.0) * fs))
-    end_local_index = min(len(candidates), start_local_idx + refine_length_samples)
+    end_local_index = min(len(envelope), start_local_idx + refine_length_samples)
 
     local_peak_index = np.argmax(envelope[start_local_idx:end_local_index])
-    peak_idx = start_index + int(local_peak_index)
+    peak_idx = start_local_idx + int(local_peak_index)
 
     return peak_idx, envelope
+
+##################################################################################
 
 # Find the end where the envelope falls back near the noise floor.
 # Returns end sample index (of useful signal)
@@ -125,7 +130,7 @@ def find_noise_limited_end(
     safety_offset_ms = 30.0
 ) -> int: 
     
-    if envelope == None:
+    if envelope is None:
         envelope = compute_envelope(x = x, fs = fs, smooth_ms = smooth_ms)
     
     _, noise_db = compute_noise_floor(x)
@@ -143,6 +148,8 @@ def find_noise_limited_end(
     end_idx = min(len(x), search_start_idx + candidates[0] + safety_offset_samples)
 
     return int(end_idx)
+
+##################################################################################
 
 # This functions ties all the peak finding logic together
 # Returns: trimmed_rir, start_idx, end_idx, peak_idx, envelope
@@ -180,7 +187,7 @@ def trim_rir_robust(
 
     #Safety check if something goes wrong
     if end_idx<=start_idx:
-        end = min(len(x), peak_idx+int(min_tail_ms*fs)) # keep min_tail_ms of the RIR after peak
+        end_idx = min(len(x), peak_idx+int((min_tail_ms/1000.0)*fs)) # keep min_tail_ms of the RIR after peak
 
     trimmed = x[start_idx:end_idx]
     return trimmed, start_idx, end_idx, peak_idx, tail_envelope 
@@ -192,7 +199,7 @@ plotting
 noise floor comparison
 """
 
-    
+ ##################################################################################   
 
 
     

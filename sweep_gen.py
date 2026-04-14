@@ -18,15 +18,15 @@ def generate_log_sweep(
 
     return sweep.astype(np.float64)
 
-def generate_inverse_sweep(
+def generate_inverse_filter(
         sweep: np.ndarray,
         fs: int,
-        duration: float,
         f_start: int,
         f_end: int
 ) -> np.ndarray:
 
     n = len(sweep)
+    duration = n / fs
     t = np.linspace(0.0, duration, n, endpoint= False)
 
     #Amplitude correction for exponential sweep filter
@@ -35,6 +35,7 @@ def generate_inverse_sweep(
 
     return inverse.astype(np.float64)
 
+# Pad signals with pre defined values of pre and post silences.
 def pad_signal(
         signal: np.ndarray,
         fs: int,
