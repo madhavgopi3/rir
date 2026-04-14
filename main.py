@@ -230,8 +230,6 @@ def main():
     elif choice =="4":
         raw_sweep, padded_sweep, inverse_filter = generate_sweep_files(cfg)
         visualize_together(cfg, raw_sweep)
-    
-    elif choice =="5":
 
 
 

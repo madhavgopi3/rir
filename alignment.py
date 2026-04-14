@@ -9,7 +9,7 @@ from scipy.signal import correlate
 # Negative lag -> The recording starts before the sine sweep (Desirable).
 
 def estimate_delay(source: np.ndarray, recorded: np.ndarray) -> int:
-    corr = correlate(recorded, source, mode= "full", method = "fft") # Here recorded and source are reversed. So source slides. This is done to prevent negative numbers.
+    corr = correlate(recorded, source, mode= "full", method = "fft") # Here recorded and source are swapped in order. So source slides. This is done to prevent negative numbers.
     lag = np.argmax(np.abs(corr)) - (len(source) - 1) # Means the recorded signal would start 'lag' samples later.
     return int(lag)
 
