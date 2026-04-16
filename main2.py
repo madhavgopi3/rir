@@ -34,6 +34,7 @@ def main():
 
         raw_sweep = normalize_peak(raw_sweep, peak=0.999)
 
+        #padded sweep is not used.
         padded_sweep = pad_signal(
             raw_sweep,
             fs=cfg.fs,
@@ -44,7 +45,6 @@ def main():
         inverse_filter = generate_inverse_filter(
             sweep=raw_sweep,
             fs=cfg.fs,
-            duration=cfg.sweep_duration,
             f_start=cfg.f_start,
             f_end=cfg.f_end,
         )

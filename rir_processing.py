@@ -175,13 +175,13 @@ def trim_rir_robust(
     pre_samples = int((pre_ms/1000) * fs)
     start_idx = max(0, peak_idx - pre_samples)
 
-    tail_envelope = compute_envelope(x = x, fs = fs, smooth_ms= tail_smooth_ms) # Computes another envelope for tail analysis. This one is much smoother cuz of higher smooth_ms value.
+    full_envelope = compute_envelope(x = x, fs = fs, smooth_ms= tail_smooth_ms) # Computes another envelope for tail analysis. This one is much smoother cuz of higher smooth_ms value.
 
     end_idx = find_noise_limited_end(
         x = x,
         fs = fs,
         peak_idx=peak_idx,
-        envelope=tail_envelope,
+        envelope=full_envelope,
         min_tail_ms=min_tail_ms,
         safety_offset_ms=safety_offset_ms
         )
@@ -191,7 +191,7 @@ def trim_rir_robust(
         end_idx = min(len(x), peak_idx+int((min_tail_ms/1000.0)*fs)) # keep min_tail_ms of the RIR after peak
 
     trimmed = x[start_idx:end_idx]
-    return trimmed, start_idx, end_idx, peak_idx, tail_envelope 
+    return trimmed, start_idx, end_idx, peak_idx, full_envelope 
 """ 
 We return the tail_envelope for:
 decay analysis
