@@ -97,8 +97,9 @@ def robust_peak_finder(x: np.ndarray,
     
     start_local_idx = start_index + int(candidates[0]) # Index of the starting of the first crossing above threshold.
 
-    # Refine a window of 2 ms after first crossing
+    # Take a window of 2 ms after first crossing
     # 2ms because direct sound is quick. Reflections come later.
+    # Return the argmax of this window.
     refine_length_ms = 2.0
     refine_length_samples = max(1, int((refine_length_ms/1000.0) * fs))
     end_local_index = min(len(envelope), start_local_idx + refine_length_samples)
@@ -115,7 +116,7 @@ def robust_peak_finder(x: np.ndarray,
 
 """
 EDITABLES: min_tail_ms, safety_offset_ms
-SEARCH AREA: The place from the required audio peak + we add a random 300ms area. peak_idx + min_tail_samples
+SEARCH AREA: The place from the required rir peak + we add a random 300ms area. peak_idx + min_tail_samples
 CANDIDATES: Indices in SEARCH AREA where the value falls below noise_db
 end_idx = Place where we think the noise floor is hit + safety_offset_samples
 """
@@ -137,11 +138,11 @@ def find_noise_limited_end(
     envelope_db = 20 * np.log10(envelope + 1e-12)
 
     min_tail_samples = max(1, int((min_tail_ms/1000) * fs))
-    search_start_idx = min(len(x) - 1, peak_idx + min_tail_samples) # Peak of audio signal + we add a buffer from where to start searching for the noise
-    candidates = np.where(envelope_db[search_start_idx:] <= noise_db)[0] # Filter out the indices where the signal falls below noise floor.
+    search_start_idx = min(len(x) - 1, peak_idx + min_tail_samples) # Peak of rir + we add a buffer from where to start searching for the noise
+    candidates = np.where(envelope_db[search_start_idx:] <= noise_db)[0] # Filter out the indices where rir falls below noise floor.
 
-    if len(candidates) == 0: # If there is no noise tail at the end of the signal
-        return len(x) # Returns the last index of the signal itself
+    if len(candidates) == 0: # If there is no noise tail at the end of rir
+        return len(x) # Returns the last index of the rir itself
     
     # A small offset to ensure the tail is not cut aggressively.
     safety_offset_samples = int((safety_offset_ms/1000) * fs)
@@ -199,7 +200,7 @@ plotting
 noise floor comparison
 """
 
- ##################################################################################   
+##################################################################################   
 
 
     
