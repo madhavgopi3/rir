@@ -15,11 +15,11 @@ def trim_peak(
     
     peak_idx = find_peak(h)
 
-    pre = int((pre_ms/1000.0) * fs) #Converting ms to samples
-    post = int((post_ms/1000.0) * fs)
+    pre_samples = int((pre_ms/1000.0) * fs) #Converting ms to samples
+    post_samples = int((post_ms/1000.0) * fs)
 
-    start = max(0, peak_idx-pre)
-    end = min(len(h), peak_idx + post)
+    start = max(0, peak_idx-pre_samples)
+    end = min(len(h), peak_idx + post_samples)
 
     return h[start:end], start, end
 
@@ -76,6 +76,8 @@ def compute_envelope(x: np.ndarray, fs: int, smooth_ms: float = 1.0) -> np.ndarr
 
 # Finds the meaningful arrival using smoothed envelope relative to the estimated noise floor
 # Returns index of peak and the envelope
+
+"""
 def robust_peak_finder(x: np.ndarray, 
                        fs: int,
                        threshold_over_noise_db: float = 15.0,
@@ -107,6 +109,41 @@ def robust_peak_finder(x: np.ndarray,
     local_peak_index = np.argmax(envelope[start_local_idx:end_local_index])
     peak_idx = start_local_idx + int(local_peak_index)
 
+    return peak_idx, envelope
+
+##################################################################################
+"""
+def robust_peak_finder(
+    x: np.ndarray,
+    fs: int,
+    threshold_over_noise_db: float = 15.0,
+    smooth_ms: float = 1.0,
+    search_start_index: int = 0,
+    backtrack_ms: float = 20.0,
+) -> tuple[int, np.ndarray]:
+
+    envelope = compute_envelope(x=x, fs=fs, smooth_ms=smooth_ms)
+    env_db = 20 * np.log10(envelope + 1e-12)
+
+    _, noise_db = compute_noise_floor(x=x)
+    threshold_db = noise_db + threshold_over_noise_db
+
+    global_peak_idx = int(np.argmax(envelope))
+
+    backtrack_samples = max(1, int((backtrack_ms / 1000.0) * fs))
+    search_start = max(search_start_index, global_peak_idx - backtrack_samples)
+
+    candidates = np.where(env_db[search_start:global_peak_idx + 1] > threshold_db)[0]
+
+    if len(candidates) == 0:
+        return global_peak_idx, envelope
+
+    onset_idx = search_start + int(candidates[0])
+
+    refine_end = min(len(envelope), onset_idx + max(1, int((2.0 / 1000.0) * fs)))
+    local_peak_idx = int(np.argmax(envelope[onset_idx:refine_end]))
+
+    peak_idx = onset_idx + local_peak_idx
     return peak_idx, envelope
 
 ##################################################################################

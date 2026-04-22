@@ -6,7 +6,7 @@ from scipy.signal import correlate
 
 # Estimate the sample delay between the source and the recorded signals.
 # Positive lag -> The recording starts after the sine sweep.
-# Negative lag -> The recording starts before the sine sweep (Desirable).
+# Negative lag -> The recording starts before the sine sweep.
 
 def estimate_delay(source: np.ndarray, recorded: np.ndarray) -> int:
     corr = correlate(recorded, source, mode= "full", method = "fft") # Here recorded and source are swapped in order. So source slides. This is done to prevent negative numbers.

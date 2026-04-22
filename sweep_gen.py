@@ -27,11 +27,23 @@ def generate_inverse_filter(
 
     n = len(sweep)
     duration = n / fs
-    t = np.linspace(0.0, duration, n, endpoint= False)
-
-    #Amplitude correction for exponential sweep filter
-    envelope = np.exp(t * np.log(f_end/f_start)/duration)
-    inverse = sweep[::-1]/envelope
+    t = np.linspace(0.0, duration, n, endpoint=False)
+    
+    # Farina's time constant
+    L = duration / np.log(f_end / f_start)
+    
+    # Modulation envelope: 6dB/octave attenuation
+    # This compensates for the pink-spectrum nature of the log sweep
+    envelope = np.exp(-t / L)
+    
+    # Reverse the sweep and apply the envelope
+    # Note: The inverse filter should also be normalized 
+    # to ensure the convolution result has a peak of 1.0
+    inverse = sweep[::-1] * envelope
+    
+    # Normalization factor (optional but recommended for unity gain)
+    # The spectral power needs to be balanced
+    inverse /= (f_start * L) 
 
     return inverse.astype(np.float64)
 

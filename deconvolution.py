@@ -3,10 +3,13 @@
 
 import numpy as np
 from scipy.signal import fftconvolve
+from rir_processing import trim_rir_robust
 
 def deconvolve(recorded: np.ndarray, inverse_filter: np.ndarray) -> np.ndarray:
     h = fftconvolve(recorded, inverse_filter, mode = "full")
     return h.astype(np.float64)
 
-def extract_rir(recorded: np.ndarray, inverse_filter: np.ndarray) -> np.ndarray:
-    return deconvolve(recorded, inverse_filter)
+def extract_rir(recorded: np.ndarray, inverse_filter: np.ndarray, fs = 48000) -> np.ndarray:
+    raw_rir = deconvolve(recorded, inverse_filter)
+    trimmed_rir, _, _, _, _ = trim_rir_robust(x=raw_rir, fs=fs)
+    return trimmed_rir

@@ -25,10 +25,10 @@ class MeasurementConfig:
     safety_offset_ms: float = 30.0
 
     output_dir: Path = Path("output")
-    recorded_sweep_path: Path = Path("recorded/3.wav")
+    recorded_sweep_path: Path = Path("recorded/1.wav")
     recorded_sweep_path2: Path = Path("recorded/2.wav")
     external_sweep_path: Path = Path("sweep_48000_50_22000.wav")
-    use_external_sweep: bool = False
+    use_external_sweep: bool = True
     
     generated_sweep_name: str = "generated_sweep.wav"
     padded_sweep_name: str = "padded_generated_sweep.wav"
