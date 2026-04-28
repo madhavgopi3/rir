@@ -113,6 +113,12 @@ def robust_peak_finder(x: np.ndarray,
 
 ##################################################################################
 """
+
+# Find the peak. Backtrack by 20ms. This is search_start
+# Find where the signal first crosses threshold_db from here. This is onset_idx.
+# refine_end is onset_idx + 2 ms. And search within this 2ms window to find the peak with argmax.
+
+
 def robust_peak_finder(
     x: np.ndarray,
     fs: int,
@@ -130,7 +136,7 @@ def robust_peak_finder(
 
     global_peak_idx = int(np.argmax(envelope))
 
-    backtrack_samples = max(1, int((backtrack_ms / 1000.0) * fs))
+    backtrack_samples = max(1, int((backtrack_ms / 1000.0) * fs)) #Instead of searching the whole signal, we backtrack and search 20 ms from the peak.
     search_start = max(search_start_index, global_peak_idx - backtrack_samples)
 
     candidates = np.where(env_db[search_start:global_peak_idx + 1] > threshold_db)[0]

@@ -10,9 +10,17 @@ from alignment import extract_aligned_segment
 from deconvolution import extract_rir
 from rir_processing import energy_curve, normalize_rir, trim_rir_robust
 from visualization import (
-    plot_rir, plot_spectrogram, plot_waveform, plot_edc, show_all
+    plot_rir, plot_spectrogram, plot_waveform, plot_edc,
+    plot_deconvolution_result,
+    plot_linear_and_nonlinear_ir,
+    plot_linear_and_nonlinear_db,
+    plot_fft_rir,
+    show_all
 )
 from external_sweep import rir_from_external_sweep
+
+from harmonic_separation import extract_ir_sweep
+from rir_processing import normalize_rir, trim_rir_robust
 
 
 
@@ -63,6 +71,15 @@ def main():
         rir_raw = extract_rir(aligned_recording, inverse_filter)
         sweep_for_plot = raw_sweep
 
+        ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
+        sweep_response=aligned_recording,
+        inverse_sweep=inverse_filter,
+        )
+
+        #plot_deconvolution_result(ir_full=ir_full, fs=cfg.fs)
+        #plot_linear_and_nonlinear_ir(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
+        #plot_linear_and_nonlinear_db(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
+
     else:
         # ------------------------------------------------------------
         # EXTERNAL SWEEP MODE
@@ -85,7 +102,18 @@ def main():
         clipped = check_clipping(recorded)
 
         save_audio(cfg.output_dir / cfg.external_inverse_name, normalize_peak(inverse_filter), cfg.fs)
+        
+        ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
+        sweep_response=recorded,
+        inverse_sweep=inverse_filter,
+        )
 
+       
+
+        #plot_deconvolution_result(ir_full=ir_full, fs=cfg.fs)
+        #plot_linear_and_nonlinear_ir(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
+        #plot_linear_and_nonlinear_db(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
+        
     # ------------------------------------------------------------
     # COMMON POST-PROCESSING
     # ------------------------------------------------------------
@@ -113,6 +141,8 @@ def main():
         cfg.fs,
     )
 
+
+
     """
     metadata = {
         "use_external_sweep": cfg.use_external_sweep,
@@ -136,6 +166,7 @@ def main():
     plot_spectrogram(recorded, cfg.fs, "Recorded Signal Spectrogram")
     plot_rir(rir_raw, cfg.fs, "Raw Extracted RIR")
     plot_rir(rir_trimmed_norm, cfg.fs, "Trimmed + Normalized RIR")
+    plot_fft_rir(rir_raw, cfg.fs, 262144, "Frequency Response from RIR")
 
     edc = energy_curve(rir_trimmed)
     plot_edc(edc, cfg.fs, "Energy Decay Curve")
