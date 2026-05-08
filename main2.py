@@ -1,3 +1,7 @@
+import csv
+from pathlib import Path
+import matplotlib.pyplot as plt
+
 from config import MeasurementConfig
 
 from sweep_gen import (
@@ -18,20 +22,70 @@ from visualization import (
     show_all
 )
 from external_sweep import rir_from_external_sweep
-
 from harmonic_separation import extract_ir_sweep
-from rir_processing import normalize_rir, trim_rir_robust
+
+def parse_points(path):
+    """
+    Parse points into rows and columns.
+    """
+    path = Path(path)
+    name = path.stem.upper() # Removes path extension and converts to uppercase.
+    row_label = name[0] 
+    column_label = int(name[1:])
+    return row_label, column_label
+
+def save_figure(fig, output_path, dpi=150, close=True):
+    """
+    Saves one figure. This function is looped in save_figures
+    """
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight")
+
+    if close:
+        plt.close(fig)
 
 
+def save_figures(figures, output_dir, point_name, dpi=150):
+    """
+    Saves all figures from a dictionary.
+    """
+
+    output_dir = Path(output_dir)
+
+    for name, item in figures.items():
+        save_path = output_dir / name / f"{point_name}_{name}.png"
+        save_figure(item, save_path, dpi=dpi, close=True)
 
 def main():
     cfg = MeasurementConfig()
     cfg.output_dir.mkdir(parents=True, exist_ok=True)
 
+    recorded_dir = cfg.recorded_dir
+    output_dir = cfg.output_dir
+
+    output_dirs = {
+        "rir_wav": output_dir / "rir_wav",
+        "trimmed_rir_wav": output_dir / "trimmed_rir_wav",
+        "plots": output_dir / "plots",
+        "csv": output_dir / "csv",
+    }
+
+    for folder in output_dirs.values():
+        folder.mkdir(parents=True, exist_ok=True)
+
+    recorded_files = sorted(recorded_dir.glob("*.wav"), key=parse_points)
+
+    if len(recorded_files) == 0:
+        raise FileNotFoundError(f"No .wav files found in {recorded_dir}")
+
+    results = []
+
+    # ------------------------------------------------------------
+    # GENERATED SWEEP MODE
+    # ------------------------------------------------------------
     if not cfg.use_external_sweep:
-        # ------------------------------------------------------------
-        # GENERATED SWEEP MODE
-        # ------------------------------------------------------------
         raw_sweep = generate_log_sweep(
             fs=cfg.fs,
             duration=cfg.sweep_duration,
@@ -42,7 +96,6 @@ def main():
 
         raw_sweep = normalize_peak(raw_sweep, peak=0.999)
 
-        #padded sweep is not used.
         padded_sweep = pad_signal(
             raw_sweep,
             fs=cfg.fs,
@@ -59,123 +112,213 @@ def main():
 
         inverse_filter = normalize_peak(inverse_filter, peak=0.999)
 
-        save_audio(cfg.output_dir / cfg.generated_sweep_name, raw_sweep, cfg.fs)
-        save_audio(cfg.output_dir / cfg.padded_sweep_name, padded_sweep, cfg.fs)
-        save_audio(cfg.output_dir / cfg.inverse_sweep_name, inverse_filter, cfg.fs)
+        save_audio(output_dir / cfg.generated_sweep_name, raw_sweep, cfg.fs)
+        save_audio(output_dir / cfg.padded_sweep_name, padded_sweep, cfg.fs)
+        save_audio(output_dir / cfg.inverse_sweep_name, inverse_filter, cfg.fs)
 
-        recorded, _ = load_audio(cfg.recorded_sweep_path, target_fs=cfg.fs, mono=True)
-        clipped = check_clipping(recorded)
-
-        aligned_recording, lag = extract_aligned_segment(raw_sweep, recorded)
-
-        rir_raw = extract_rir(aligned_recording, inverse_filter)
         sweep_for_plot = raw_sweep
 
-        ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
-        sweep_response=aligned_recording,
-        inverse_sweep=inverse_filter,
+        reference_figures = {
+            "reference_sweep": plot_waveform(
+                sweep_for_plot,
+                cfg.fs,
+                "Reference Sweep"
+            )
+        }
+
+        save_figures(
+            figures=reference_figures,
+            output_dir=output_dirs["plots"],
+            point_name="reference",
+            dpi=150,
         )
 
-        #plot_deconvolution_result(ir_full=ir_full, fs=cfg.fs)
-        #plot_linear_and_nonlinear_ir(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
-        #plot_linear_and_nonlinear_db(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
-
+    # ------------------------------------------------------------
+    # EXTERNAL SWEEP MODE
+    # ------------------------------------------------------------
+    
+    
     else:
-        # ------------------------------------------------------------
-        # EXTERNAL SWEEP MODE
-        # ------------------------------------------------------------
-        result = rir_from_external_sweep(
-            sweep_path=cfg.external_sweep_path,
-            recorded_path=cfg.recorded_sweep_path2,
-            f_start=cfg.f_start2,
-            f_end=cfg.f_end2,
+        sweep_for_plot, _ = load_audio(
+            cfg.external_sweep_path,
             target_fs=cfg.fs,
-            mono=True,
+            mono=True
         )
 
-        sweep_for_plot = result["sweep"]
-        recorded = result["recorded"]
-        inverse_filter = result["inverse_filter"]
-        lag = result["lag_samples"]
-        rir_raw = result["rir_raw"]
+        reference_figures = {
+            "reference_sweep": plot_waveform(
+                sweep_for_plot,
+                cfg.fs,
+                "External Reference Sweep"
+            )
+        }
 
-        clipped = check_clipping(recorded)
-
-        save_audio(cfg.output_dir / cfg.external_inverse_name, normalize_peak(inverse_filter), cfg.fs)
-        
-        ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
-        sweep_response=recorded,
-        inverse_sweep=inverse_filter,
+        save_figures(
+            figures=reference_figures,
+            output_dir=output_dirs["plots"],
+            point_name="reference",
+            dpi=150,
         )
 
-       
+        inverse_filter = None
 
-        #plot_deconvolution_result(ir_full=ir_full, fs=cfg.fs)
-        #plot_linear_and_nonlinear_ir(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
-        #plot_linear_and_nonlinear_db(ir_lin=ir_lin, ir_nonlin=ir_nonlin, fs=cfg.fs)
-        
     # ------------------------------------------------------------
-    # COMMON POST-PROCESSING
+    # PROCESS ALL 40 RECORDED FILES
     # ------------------------------------------------------------
-    rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
-        rir_raw,
-        fs=cfg.fs,
-        pre_ms=cfg.rir_trim_pre_ms,
-        min_tail_ms=cfg.rir_min_tail_ms,
-        threshold_over_noise_db=cfg.threshold_over_noise_db,
-        arrival_smooth_ms=cfg.arrival_smooth_ms,
-        tail_smooth_ms=cfg.tail_smooth_ms,
-    )
+    for rec_path in recorded_files:
+        point_name = rec_path.stem.upper()
+        row_label, column_label = parse_points(point_name)
 
-    rir_trimmed_norm = normalize_rir(rir_trimmed)
+        print(f"\nProcessing {point_name}")
 
-    save_audio(
-        cfg.output_dir / cfg.rir_name,
-        normalize_for_saving(rir_raw),
-        cfg.fs,
-    )
+        if not cfg.use_external_sweep:
+            recorded, _ = load_audio(rec_path, target_fs=cfg.fs, mono=True)
+            clipped = check_clipping(recorded)
 
-    save_audio(
-        cfg.output_dir / cfg.trimmed_rir_name,
-        normalize_for_saving(rir_trimmed_norm),
-        cfg.fs,
-    )
+            aligned_recording, lag = extract_aligned_segment(raw_sweep, recorded)
 
+            rir_raw = extract_rir(aligned_recording, inverse_filter)
 
+            ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
+                sweep_response=aligned_recording,
+                inverse_sweep=inverse_filter,
+            )
 
-    """
-    metadata = {
-        "use_external_sweep": cfg.use_external_sweep,
-        "external_sweep_path": cfg.external_sweep_path if cfg.use_external_sweep else None,
-        "recording_path": cfg.recorded_sweep_path2 if cfg.use_external_sweep else cfg.recorded_sweep_path,
-        "estimated_lag_samples": lag,
-        "estimated_lag_seconds": lag / cfg.fs,
-        "recording_clipped": clipped,
-        "direct_peak_sample": peak_idx,
-        "direct_peak_seconds": peak_idx / cfg.fs,
-        "trim_start_sample": trim_start,
-        "trim_end_sample": trim_end,
-    }
+        else:
+            result = rir_from_external_sweep(
+                sweep_path=cfg.external_sweep_path,
+                recorded_path=rec_path,
+                f_start=cfg.f_start2,
+                f_end=cfg.f_end2,
+                target_fs=cfg.fs,
+                mono=True,
+            )
 
-    with open(cfg.output_dir / "metadata.json", "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
-    """
+            sweep_for_plot = result["sweep"]
+            recorded = result["recorded"]
+            inverse_filter = result["inverse_filter"]
+            lag = result["lag_samples"]
+            rir_raw = result["rir_raw"]
 
-    plot_waveform(sweep_for_plot, cfg.fs, "Reference Sweep")
-    plot_waveform(recorded, cfg.fs, "Recorded Signal")
-    plot_spectrogram(recorded, cfg.fs, "Recorded Signal Spectrogram")
-    plot_rir(rir_raw, cfg.fs, "Raw Extracted RIR")
-    plot_rir(rir_trimmed_norm, cfg.fs, "Trimmed + Normalized RIR")
-    plot_fft_rir(rir_raw, cfg.fs, 262144, "Frequency Response from RIR")
+            clipped = check_clipping(recorded)
 
-    edc = energy_curve(rir_trimmed)
-    plot_edc(edc, cfg.fs, "Energy Decay Curve")
+            ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
+                sweep_response=recorded,
+                inverse_sweep=inverse_filter,
+            )
 
-    print("Done.")
-    print(f"Lag: {lag} samples ({lag / cfg.fs:.4f} s)")
-    print(f"Clipped: {clipped}")
+        # ------------------------------------------------------------
+        # COMMON POST-PROCESSING
+        # ------------------------------------------------------------
+        rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
+            rir_raw,
+            fs=cfg.fs,
+            pre_ms=cfg.rir_trim_pre_ms,
+            min_tail_ms=cfg.rir_min_tail_ms,
+            threshold_over_noise_db=cfg.threshold_over_noise_db,
+            arrival_smooth_ms=cfg.arrival_smooth_ms,
+            tail_smooth_ms=cfg.tail_smooth_ms,
+        )
 
-    show_all()
+        rir_trimmed_norm = normalize_rir(rir_trimmed)
+
+        # ------------------------------------------------------------
+        # SAVE AUDIO
+        # ------------------------------------------------------------
+        save_audio(
+            output_dirs["rir_wav"] / f"{point_name}_rir_raw.wav",
+            normalize_for_saving(rir_raw),
+            cfg.fs,
+        )
+
+        save_audio(
+            output_dirs["trimmed_rir_wav"] / f"{point_name}_rir_trimmed.wav",
+            normalize_for_saving(rir_trimmed_norm),
+            cfg.fs,
+        )
+
+        # ------------------------------------------------------------
+        # CREATE PLOTS
+        # ------------------------------------------------------------
+        edc = energy_curve(rir_trimmed)
+
+        figures = {
+            "recorded_signal": plot_waveform(
+                recorded,
+                cfg.fs,
+                f"Recorded Signal - {point_name}"
+            ),
+            "recorded_spectrogram": plot_spectrogram(
+                recorded,
+                cfg.fs,
+                f"Recorded Signal Spectrogram - {point_name}"
+            ),
+            "rir_raw": plot_rir(
+                rir_raw,
+                cfg.fs,
+                f"Raw Extracted RIR - {point_name}"
+            ),
+            "rir_trimmed": plot_rir(
+                rir_trimmed_norm,
+                cfg.fs,
+                f"Trimmed + Normalized RIR - {point_name}"
+            ),
+            "frequency_response": plot_fft_rir(
+                rir_raw,
+                cfg.fs,
+                262144,
+                f"Frequency Response from RIR - {point_name}"
+            ),
+            "edc": plot_edc(
+                edc,
+                cfg.fs,
+                f"Energy Decay Curve - {point_name}"
+            ),
+        }
+
+        save_figures(
+            figures=figures,
+            output_dir=output_dirs["plots"],
+            point_name=point_name,
+            dpi=150,
+        )
+
+        # ------------------------------------------------------------
+        # SAVE RESULTS FOR CSV
+        # ------------------------------------------------------------
+        results.append({
+            "point": point_name,
+            "row_label": row_label,
+            "column_label": column_label,
+            "recording_file": rec_path.name,
+            "lag_samples": lag,
+            "lag_seconds": lag / cfg.fs,
+            "clipped": clipped,
+            "direct_peak_sample": peak_idx,
+            "direct_peak_seconds": peak_idx / cfg.fs,
+            "trim_start_sample": trim_start,
+            "trim_end_sample": trim_end,
+            "trimmed_length_samples": len(rir_trimmed_norm),
+            "trimmed_length_seconds": len(rir_trimmed_norm) / cfg.fs,
+        })
+
+        print(f"Finished {point_name}")
+        print(f"Lag: {lag} samples ({lag / cfg.fs:.4f} s)")
+        print(f"Clipped: {clipped}")
+
+    # ------------------------------------------------------------
+    # SAVE CSV
+    # ------------------------------------------------------------
+    csv_path = output_dirs["csv"] / "batch_results.csv"
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+
+    print("\nDone.")
+    print(f"Processed {len(recorded_files)} files.")
+    print(f"CSV saved to: {csv_path}")
 
 
 if __name__ == "__main__":

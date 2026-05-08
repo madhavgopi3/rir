@@ -5,56 +5,65 @@ from scipy.signal import spectrogram
 def plot_waveform(signal: np.ndarray, fs: int, title: str):
     t = np.arange(len(signal)) / fs
     
-    plt.figure(figsize=[10,4])
-    plt.plot(t, signal, linewidth = 0.8)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude")
-    plt.title(title)
-    plt.grid(True, alpha = 0.3)
-    plt.tight_layout()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(t, signal, linewidth=0.8)
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Amplitude")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    return fig
 
 """
 def plot_together(signal: np.ndarray, signal2: np.ndarray, fs: int, title: str):
     t = np.arange(len(signal)) / fs
     
-    plt.figure(figsize=[10,4])
-    plt.plot(t, signal, linestyle='--', linewidth = 0.8)
-    plt.plot(t, signal2 + 0.1, linestyle='-', linewidth = 0.8)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude")
-    plt.title(title)
-    plt.grid(True, alpha = 0.3)
-    plt.tight_layout()
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(t, signal, linestyle='--', linewidth = 0.8)
+    ax.plot(t, signal2 + 0.1, linestyle='-', linewidth = 0.8)
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Amplitude")
+    ax.set_title(title)
+    ax.grid(True, alpha = 0.3)
+    
+    fig.tight_layout()
+    return fig
+
 
 """
 
 #Now same as plot_waveform. Make changes if needed in the future.
 def plot_rir(signal: np.ndarray, fs: int, title: str):
-    plot_waveform(signal, fs, title)
+    return plot_waveform(signal, fs, title)
 
 def plot_spectrogram(signal: np.ndarray, fs: int, title: str):
     f, t, mag = spectrogram(signal, fs=fs, nperseg=2048, noverlap=1024, mode="magnitude") # Each FFT window uses 2048 samples. Adjacent windows overlap by 1024 samples.
 
-    plt.figure(figsize=(10,4))
-    plt.pcolormesh(t, f, (20*np.log10(mag + 1e-12)), shading="gouraud") #colour will show the magnitude in dB.
-    plt.xlabel("Time [s]")
-    plt.ylabel("Frequency [Hz]")
-    plt.title(title)
-    plt.grid(True, alpha = 0.3)
-    plt.tight_layout()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    mesh = ax.pcolormesh(t, f, (20*np.log10(mag + 1e-12)), shading="gouraud") #colour will show the magnitude in dB.
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Frequency [Hz]")
+    ax.set_title(title)
+    ax.grid(True, alpha = 0.3)
+
+    fig.colorbar(mesh, ax=ax, label="Magnitude [dB]")
+    fig.tight_layout()
+    return fig
 
 def plot_edc(edc: np.ndarray, fs: int, title: str = "Energy Decay Curve"):
     t = np.arange(len(edc))/fs
     edc_db = 10 * np.log10(edc + 1e-12)
 
-    plt.figure(figsize=[10,4])
-    plt.plot(t, edc_db, linewidth = 0.8)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Level [dB]")
-    plt.title(title)
-    plt.grid(True, alpha = 0.3)
-    plt.tight_layout()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(t, edc_db, linewidth = 0.8)
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel("Level [dB]")
+    ax.set_title(title)
+    ax.grid(True, alpha = 0.3)
+
+    fig.tight_layout()
+    return fig
 
 def plot_fft_rir(h: np.ndarray, fs:int, n_fft: int, title: str): # 65536 because 2^16. freq_resolution = fs/nfft. n_fft is best if it's the next power of 2 greater than len(rir)
 
@@ -64,52 +73,61 @@ def plot_fft_rir(h: np.ndarray, fs:int, n_fft: int, title: str): # 65536 because
     freqs = np.fft.rfftfreq(n_fft, d = 1/fs)
     magnitude_db = 20 * np.log10(np.abs(H) + 1e-12)
 
-    plt.figure(figsize=(10, 4))
-    plt.semilogx(freqs, magnitude_db)
-    plt.xlabel("Frequency [Hz]")
-    plt.ylabel("Magnitude [dB]")
-    plt.title("Frequency Response from RIR")
-    plt.grid(True, which="both")
-    plt.xlim(20, fs / 2)
-    plt.show()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.semilogx(freqs, magnitude_db)
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("Magnitude [dB]")
+    ax.set_title(title)
+    ax.grid(True, which="both")
+    ax.set_xlim(20, fs / 2)
+
+    fig.tight_layout()
+    return fig
 
 # MATLAB Adaptation Part
+
+"""
+    Plot the full centered deconvolved response.
+    First half usually contains nonlinear components,
+    second half contains the linear impulse response.
+"""
 
 def plot_deconvolution_result(
     ir_full: np.ndarray,
     fs: int,
     title: str = "Full Deconvolved Response",
 ):
-    """
-    Plot the full centered deconvolved response.
-    First half usually contains nonlinear components,
-    second half contains the linear impulse response.
-    """
     ir_full = np.asarray(ir_full, dtype=np.float64).squeeze()
     t = np.arange(len(ir_full)) / fs
     floor_db = -120.0
 
-    epsilon = 10 ** (floor_db/20)
+    epsilon = 10 ** (floor_db / 20)
+    ir_full_db = 20 * np.log10(np.maximum(np.abs(ir_full), epsilon))
 
-    ir_full_db = 20 * np.log10(np.maximum(np.abs(ir_full),epsilon))
+    mid_time = (len(ir_full) // 2) / fs
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t, ir_full)
-    plt.axvline((len(ir_full) // 2) / fs, linestyle="--")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude")
-    plt.title(title)
-    plt.grid(True)
-    plt.tight_layout()
+    fig_wave, ax_wave = plt.subplots(figsize=(10, 4))
+    ax_wave.plot(t, ir_full)
+    ax_wave.axvline(mid_time, linestyle="--")
+    ax_wave.set_xlabel("Time [s]")
+    ax_wave.set_ylabel("Amplitude")
+    ax_wave.set_title(title)
+    ax_wave.grid(True)
+    fig_wave.tight_layout()
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t, ir_full_db)
-    plt.axvline((len(ir_full_db) // 2) / fs, linestyle="--")
-    plt.xlabel("Time [s]")
-    plt.ylabel("Level [dB]")
-    plt.title(title + "[dB]")
-    plt.grid(True)
-    plt.tight_layout()
+    fig_db, ax_db = plt.subplots(figsize=(10, 4))
+    ax_db.plot(t, ir_full_db)
+    ax_db.axvline(mid_time, linestyle="--")
+    ax_db.set_xlabel("Time [s]")
+    ax_db.set_ylabel("Level [dB]")
+    ax_db.set_title(title + " [dB]")
+    ax_db.grid(True)
+    fig_db.tight_layout()
+
+    return {
+        "deconvolution_full": fig_wave,
+        "deconvolution_full_db": fig_db,
+    }
 
 
 
@@ -127,21 +145,26 @@ def plot_linear_and_nonlinear_ir(
     t_lin = np.arange(len(ir_lin)) / fs
     t_nonlin = np.arange(len(ir_nonlin)) / fs
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t_nonlin, ir_nonlin)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude")
-    plt.title("Nonlinear Components")
-    plt.grid(True)
-    plt.tight_layout()
+    fig_nonlin, ax_nonlin = plt.subplots(figsize=(10, 4))
+    ax_nonlin.plot(t_nonlin, ir_nonlin)
+    ax_nonlin.set_xlabel("Time [s]")
+    ax_nonlin.set_ylabel("Amplitude")
+    ax_nonlin.set_title("Nonlinear Components")
+    ax_nonlin.grid(True)
+    fig_nonlin.tight_layout()
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t_lin, ir_lin)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Amplitude")
-    plt.title("Linear Impulse Response")
-    plt.grid(True)
-    plt.tight_layout()
+    fig_lin, ax_lin = plt.subplots(figsize=(10, 4))
+    ax_lin.plot(t_lin, ir_lin)
+    ax_lin.set_xlabel("Time [s]")
+    ax_lin.set_ylabel("Amplitude")
+    ax_lin.set_title("Linear Impulse Response")
+    ax_lin.grid(True)
+    fig_lin.tight_layout()
+
+    return {
+        "nonlinear_ir": fig_nonlin,
+        "linear_ir": fig_lin,
+    }
 
 
 def plot_linear_and_nonlinear_db(
@@ -165,21 +188,26 @@ def plot_linear_and_nonlinear_db(
     t_lin = np.arange(len(ir_lin)) / fs
     t_nonlin = np.arange(len(ir_nonlin)) / fs
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t_nonlin, nonlin_db)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Level [dB]")
-    plt.title("Nonlinear Components (dB)")
-    plt.grid(True)
-    plt.tight_layout()
+    fig_nonlin, ax_nonlin = plt.subplots(figsize=(10, 4))
+    ax_nonlin.plot(t_nonlin, nonlin_db)
+    ax_nonlin.set_xlabel("Time [s]")
+    ax_nonlin.set_ylabel("Level [dB]")
+    ax_nonlin.set_title("Nonlinear Components (dB)")
+    ax_nonlin.grid(True)
+    fig_nonlin.tight_layout()
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(t_lin, lin_db)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Level [dB]")
-    plt.title("Linear Impulse Response (dB)")
-    plt.grid(True)
-    plt.tight_layout()
+    fig_lin, ax_lin = plt.subplots(figsize=(10, 4))
+    ax_lin.plot(t_lin, lin_db)
+    ax_lin.set_xlabel("Time [s]")
+    ax_lin.set_ylabel("Level [dB]")
+    ax_lin.set_title("Linear Impulse Response (dB)")
+    ax_lin.grid(True)
+    fig_lin.tight_layout()
+
+    return {
+        "non_linear_db": fig_nonlin,
+        "linear_ir": fig_lin
+    }
 
 
 def show_all():
