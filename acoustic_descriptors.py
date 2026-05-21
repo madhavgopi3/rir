@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def _safe_energy(rir):
+def rir_energy(rir):
     rir = np.asarray(rir, dtype=np.float64).squeeze()
     return rir ** 2
 
@@ -11,7 +11,7 @@ def _schroeder_edc_db(rir):
     Returns normalized Energy Decay Curve in dB.
     Starts near 0 dB and decays downward.
     """
-    energy = _safe_energy(rir)
+    energy = rir_energy(rir)
 
     edc = np.cumsum(energy[::-1])[::-1]
 
@@ -27,7 +27,7 @@ def _schroeder_edc_db(rir):
 def _linear_regression_decay_time(edc_db, fs, upper_db, lower_db):
     """
     Fits a straight line between upper_db and lower_db on the EDC.
-
+    Used to find the slope of the decay curve.
     Example:
     RT20 uses -5 dB to -25 dB.
     RT30 uses -5 dB to -35 dB.
@@ -40,8 +40,8 @@ def _linear_regression_decay_time(edc_db, fs, upper_db, lower_db):
     if len(idx) < 2:
         return np.nan
 
-    x = t[idx]
-    y = edc_db[idx]
+    x = t[idx] # time values
+    y = edc_db[idx] # EDC values in dB
 
     slope, intercept = np.polyfit(x, y, 1)
 
@@ -87,7 +87,7 @@ def clarity_c50(rir, fs):
     Ratio of early energy before 50 ms to late energy after 50 ms.
     Useful for speech clarity.
     """
-    energy = _safe_energy(rir)
+    energy = rir_energy(rir)
 
     split = int(0.050 * fs)
 
@@ -103,7 +103,7 @@ def clarity_c80(rir, fs):
     Ratio of early energy before 80 ms to late energy after 80 ms.
     Useful for music clarity.
     """
-    energy = _safe_energy(rir)
+    energy = rir_energy(rir)
 
     split = int(0.080 * fs)
 
@@ -119,7 +119,7 @@ def definition_d50(rir, fs):
     Fraction of total energy arriving in the first 50 ms.
     Value is between 0 and 1.
     """
-    energy = _safe_energy(rir)
+    energy = rir_energy(rir)
 
     split = int(0.050 * fs)
 
@@ -134,7 +134,7 @@ def center_time_ts(rir, fs):
     Centre time Ts in milliseconds.
     Shows where the energy is concentrated in time.
     """
-    energy = _safe_energy(rir)
+    energy = rir_energy(rir)
     t = np.arange(len(energy)) / fs
 
     ts_seconds = np.sum(t * energy) / (np.sum(energy) + 1e-12)

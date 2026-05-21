@@ -65,24 +65,7 @@ def plot_edc(edc: np.ndarray, fs: int, title: str = "Energy Decay Curve"):
     fig.tight_layout()
     return fig
 
-def plot_fft_rir(h: np.ndarray, fs:int, n_fft: int, title: str): # 65536 because 2^16. freq_resolution = fs/nfft. n_fft is best if it's the next power of 2 greater than len(rir)
 
-    h = np.asarray(h, dtype=np.float64).squeeze()
-
-    H = np.fft.rfft(h, n = n_fft) # H is a complex. Use angle(H) for phase and abs (H) for magnitude.
-    freqs = np.fft.rfftfreq(n_fft, d = 1/fs)
-    magnitude_db = 20 * np.log10(np.abs(H) + 1e-12)
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.semilogx(freqs, magnitude_db)
-    ax.set_xlabel("Frequency [Hz]")
-    ax.set_ylabel("Magnitude [dB]")
-    ax.set_title(title)
-    ax.grid(True, which="both")
-    ax.set_xlim(20, fs / 2)
-
-    fig.tight_layout()
-    return fig
 
 # MATLAB Adaptation Part
 
@@ -209,6 +192,130 @@ def plot_linear_and_nonlinear_db(
         "linear_ir": fig_lin
     }
 
+def compute_fft_rir(h: np.ndarray, fs:int, n_fft: int): # 65536 because 2^16. freq_resolution = fs/nfft. n_fft is best if it's the next power of 2 greater than len(rir)
+
+    h = np.asarray(h, dtype=np.float64).squeeze()
+
+    H = np.fft.rfft(h, n = n_fft) # H is a complex. Use angle(H) for phase and abs (H) for magnitude.
+    freqs = np.fft.rfftfreq(n_fft, d = 1/fs) #freqs is frequency bins. Eg: freqs = [20, 500, 980, 1005, 1500]
+    magnitude_db = 20 * np.log10(np.abs(H) + 1e-12)
+
+    return freqs, magnitude_db
+
+def plot_fft_rir(freqs:np.ndarray, magnitude_db:np.ndarray, title: str):
+    
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.semilogx(freqs, magnitude_db)
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("Magnitude [dB]")
+    ax.set_title(title)
+    ax.grid(True, which="both")
+    ax.set_xlim(20, freqs[-1])
+
+    fig.tight_layout()
+    return fig
+
+def get_rir_at_freq(h: np.ndarray, fs: int, freq: int, n_fft: int):
+
+    h = np.asarray(h, dtype= np.float64).squeeze()
+    H = np.fft.rfft(h, n=n_fft)
+    freqs = np.fft.rfftfreq(n=n_fft, d=1/fs)
+    
+    magnitude_db = 20 * np.log10(np.abs(H)+ 1e-12)
+    db_at_freq = np.argmin(np.abs(freqs - freq))
+
+    return freqs[db_at_freq], magnitude_db[db_at_freq]
 
 def show_all():
     plt.show()
+
+def make_grid(results, value_key):
+    """
+    Return the 8 * 5 grid with the 40 values of a particular acoustic descriptor. Eg: 40 values of RT30.
+
+    Layout:
+        columns left to right: E, D, C, B, A
+        rows top to bottom:   1, 2, 3, ..., 8
+
+    results: the dictionary for each point with all the descriptors (it is written to the csv)
+    value_key: the descriptor I'm plotting
+    """
+
+    grid = np.full((8, 5), np.nan)
+
+    x_labels = ["E", "D", "C", "B", "A"]
+
+    for item in results: # Loops through each point and its descriptors. Eg: item = {"point": "C4", "RT30": 0.81, ......}
+        point = item["point"].upper()
+
+        letter = point[0]
+        number = int(point[1:])
+
+        row = number - 1
+        col = x_labels.index(letter) # Converts the point alphabet to number using the x_labels indices.
+
+        grid[row, col] = item[value_key]
+
+    return grid
+
+def plot_heatmap(grid, title, cbar_label):
+    """
+    Plots an 8 x 5 heatmap for the room grid.
+    """
+
+    fig, ax = plt.subplots(figsize=(7, 9))
+
+    im = ax.imshow(
+        grid,
+        origin="upper",
+        aspect="auto",
+        cmap="viridis"
+    )
+
+    x_labels = ["E", "D", "C", "B", "A"]
+    y_labels = [str(i) for i in range(1, 9)]
+
+    ax.set_xticks(np.arange(5))
+    ax.set_xticklabels(x_labels)
+
+    ax.set_yticks(np.arange(8))
+    ax.set_yticklabels(y_labels)
+
+    ax.set_xlabel("Measurement column")
+    ax.set_ylabel("Measurement row")
+    ax.set_title(title)
+
+    fig.colorbar(im, ax=ax, label=cbar_label)
+
+    # Writing the texts inside the heatmap
+    for row in range(8):
+        for col in range(5):
+            point_name = f"{x_labels[col]}{y_labels[row]}"
+            value = grid[row, col]
+           
+            ax.text(
+                col,
+                row,
+                f"{point_name}\n{value:.2f}",
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="white"
+            )
+
+    fig.tight_layout()
+    return fig
+
+def get_octave_bands(freqs: np.ndarray, magnitude_db: np.ndarray, center_freq: float):
+    """
+    Average FFT magnitude inside one octave band.
+    """
+    f_low = center_freq / np.sqrt(2)
+    f_high = center_freq * np.sqrt(2)
+
+    mask = (freqs >= f_low) & (freqs <= f_high)
+
+    if not np.any(mask):
+        return np.nan
+
+    return np.mean(magnitude_db[mask])

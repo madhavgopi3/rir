@@ -17,7 +17,7 @@ class MeasurementConfig:
     rir_pre_trim_ms: float = 5.0
     rir_post_trim_ms: float = 1500.0
 
-    rir_trim_pre_ms: float = 5.0
+    rir_trim_pre_ms: float = 0.0
     rir_min_tail_ms: float = 300.0
     threshold_over_noise_db: float = 15.0
     arrival_smooth_ms: float = 1.0

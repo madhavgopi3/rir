@@ -16,7 +16,7 @@ def estimate_delay(source: np.ndarray, recorded: np.ndarray) -> int:
 def extract_aligned_segment(source: np.ndarray, recorded: np.ndarray) -> tuple[np.ndarray, int]:
     
     lag = estimate_delay(source, recorded)
-    if lag<0: # Means the recording started after the sweep
+    if lag<0: 
         recorded = np.pad(recorded, (abs(lag),0))
         lag = 0
 

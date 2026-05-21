@@ -201,7 +201,7 @@ def find_noise_limited_end(
 def trim_rir_robust(
         x: np.ndarray,
         fs: int,
-        pre_ms: float = 5.0,
+        pre_ms: float = 0.0,
         min_tail_ms: float = 300.0,
         threshold_over_noise_db: float = 15.0,
         arrival_smooth_ms: float = 1.0,

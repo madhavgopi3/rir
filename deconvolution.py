@@ -10,6 +10,4 @@ def deconvolve(recorded: np.ndarray, inverse_filter: np.ndarray) -> np.ndarray:
     return h.astype(np.float64)
 
 def extract_rir(recorded: np.ndarray, inverse_filter: np.ndarray, fs = 48000) -> np.ndarray:
-    raw_rir = deconvolve(recorded, inverse_filter)
-    trimmed_rir, _, _, _, _ = trim_rir_robust(x=raw_rir, fs=fs)
-    return trimmed_rir
+    return deconvolve(recorded, inverse_filter)

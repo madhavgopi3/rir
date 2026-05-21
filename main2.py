@@ -18,11 +18,17 @@ from visualization import (
     plot_deconvolution_result,
     plot_linear_and_nonlinear_ir,
     plot_linear_and_nonlinear_db,
+    compute_fft_rir,
     plot_fft_rir,
+    get_rir_at_freq,
+    make_grid,
+    plot_heatmap,
+    get_octave_bands,
     show_all
 )
 from external_sweep import rir_from_external_sweep
 from harmonic_separation import extract_ir_sweep
+from acoustic_descriptors import extract_room_descriptors
 
 def parse_points(path):
     """
@@ -70,6 +76,7 @@ def main():
         "trimmed_rir_wav": output_dir / "trimmed_rir_wav",
         "plots": output_dir / "plots",
         "csv": output_dir / "csv",
+        "heatmaps": output_dir / "heatmaps",
     }
 
     for folder in output_dirs.values():
@@ -202,10 +209,12 @@ def main():
 
             clipped = check_clipping(recorded)
 
+            aligned_recording = result["aligned_recording"]
+
             ir_lin, ir_nonlin, ir_full = extract_ir_sweep(
-                sweep_response=recorded,
-                inverse_sweep=inverse_filter,
-            )
+            sweep_response=aligned_recording,
+            inverse_sweep=inverse_filter,
+)
 
         # ------------------------------------------------------------
         # COMMON POST-PROCESSING
@@ -220,7 +229,29 @@ def main():
             tail_smooth_ms=cfg.tail_smooth_ms,
         )
 
+        descriptors = extract_room_descriptors(
+        rir=rir_trimmed,
+        fs=cfg.fs
+        )
+
+        freqs, magnitude_db = compute_fft_rir(
+        h=rir_raw,
+        fs=cfg.fs,
+        n_fft=262144,
+        )
+
+        oct_125 = get_octave_bands(freqs, magnitude_db, 125)
+        oct_250 = get_octave_bands(freqs, magnitude_db, 250)
+        oct_500 = get_octave_bands(freqs, magnitude_db, 500)
+        oct_1000 = get_octave_bands(freqs, magnitude_db, 1000)
+        oct_2000 = get_octave_bands(freqs, magnitude_db, 2000)
+        oct_4000 = get_octave_bands(freqs, magnitude_db, 4000)
+
         rir_trimmed_norm = normalize_rir(rir_trimmed)
+
+        if point_name in ["C3", "C4"]:
+                freq_1k, magn_1k = get_rir_at_freq(h = rir_raw, fs = cfg.fs, freq = 1000, n_fft = 262144)
+                print(f"Freq at {freq_1k:2f} is {magn_1k:2f}")
 
         # ------------------------------------------------------------
         # SAVE AUDIO
@@ -264,9 +295,8 @@ def main():
                 f"Trimmed + Normalized RIR - {point_name}"
             ),
             "frequency_response": plot_fft_rir(
-                rir_raw,
-                cfg.fs,
-                262144,
+                freqs,
+                magnitude_db,
                 f"Frequency Response from RIR - {point_name}"
             ),
             "edc": plot_edc(
@@ -300,11 +330,79 @@ def main():
             "trim_end_sample": trim_end,
             "trimmed_length_samples": len(rir_trimmed_norm),
             "trimmed_length_seconds": len(rir_trimmed_norm) / cfg.fs,
+
+            "rt20": descriptors["rt20"],
+            "rt30": descriptors["rt30"],
+            "c50": descriptors["c50"],
+            "c80": descriptors["c80"],
+            "d50": descriptors["d50"],
+            "ts_ms": descriptors["ts_ms"],
+
+            "oct_125": oct_125,
+            "oct_250": oct_250,
+            "oct_500": oct_500,
+            "oct_1000": oct_1000,
+            "oct_2000": oct_2000,
+            "oct_4000": oct_4000,
         })
 
         print(f"Finished {point_name}")
         print(f"Lag: {lag} samples ({lag / cfg.fs:.4f} s)")
         print(f"Clipped: {clipped}")
+
+    # ------------------------------------------------------------
+    # CREATE OCTAVE BAND & DESCRIPTOR HEATMAPS
+    # ------------------------------------------------------------
+
+    octave_bands = {
+        "oct_125": "125 Hz",
+        "oct_250": "250 Hz",
+        "oct_500": "500 Hz",
+        "oct_1000": "1000 Hz",
+        "oct_2000": "2000 Hz",
+        "oct_4000": "4000 Hz",
+    }
+
+    for key, label in octave_bands.items():
+        grid = make_grid(results, key)
+
+        fig = plot_heatmap(
+            grid,
+            title=f"Octave Band Frequency Response - {label}",
+            cbar_label="Magnitude [dB]",
+        )
+
+        save_figure(
+            fig,
+            output_dirs["heatmaps"] / f"{key}_heatmap.png",
+            dpi=150,
+            close=True,
+        )
+
+    heatmap_descriptors = {
+        "rt20": "RT20 [s]",
+        "rt30": "RT30 [s]",
+        "c50": "C50 [dB]",
+        "c80": "C80 [dB]",
+        "d50": "D50 [-]",
+        "ts_ms": "Centre Time [ms]",
+    }
+
+    for key, label in heatmap_descriptors.items():
+        grid = make_grid(results, key)
+
+        fig = plot_heatmap(
+            grid,
+            title=f"{key.upper()} Across Measurement Grid",
+            cbar_label=label,
+        )
+
+        save_figure(
+            fig,
+            output_dirs["heatmaps"] / f"{key}_heatmap.png",
+            dpi=150,
+            close=True,
+        )
 
     # ------------------------------------------------------------
     # SAVE CSV
