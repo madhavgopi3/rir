@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import spectrogram
+from scipy.interpolate import griddata
+
 
 def plot_waveform(signal: np.ndarray, fs: int, title: str):
     t = np.arange(len(signal)) / fs
@@ -53,10 +55,9 @@ def plot_spectrogram(signal: np.ndarray, fs: int, title: str):
 
 def plot_edc(edc: np.ndarray, fs: int, title: str = "Energy Decay Curve"):
     t = np.arange(len(edc))/fs
-    edc_db = 10 * np.log10(edc + 1e-12)
-
+    
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(t, edc_db, linewidth = 0.8)
+    ax.plot(t, edc, linewidth = 0.8)
     ax.set_xlabel("Time [s]")
     ax.set_ylabel("Level [dB]")
     ax.set_title(title)
@@ -207,7 +208,7 @@ def plot_fft_rir(freqs:np.ndarray, magnitude_db:np.ndarray, title: str):
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.semilogx(freqs, magnitude_db)
     ax.set_xlabel("Frequency [Hz]")
-    ax.set_ylabel("Magnitude [dB]")
+    ax.set_ylabel("Magnitude [dB SPL]")
     ax.set_title(title)
     ax.grid(True, which="both")
     ax.set_xlim(20, freqs[-1])
@@ -215,13 +216,8 @@ def plot_fft_rir(freqs:np.ndarray, magnitude_db:np.ndarray, title: str):
     fig.tight_layout()
     return fig
 
-def get_rir_at_freq(h: np.ndarray, fs: int, freq: int, n_fft: int):
+def get_rir_at_freq(freqs: np.ndarray, magnitude_db:np.ndarray, freq: int):
 
-    h = np.asarray(h, dtype= np.float64).squeeze()
-    H = np.fft.rfft(h, n=n_fft)
-    freqs = np.fft.rfftfreq(n=n_fft, d=1/fs)
-    
-    magnitude_db = 20 * np.log10(np.abs(H)+ 1e-12)
     db_at_freq = np.argmin(np.abs(freqs - freq))
 
     return freqs[db_at_freq], magnitude_db[db_at_freq]
@@ -258,64 +254,96 @@ def make_grid(results, value_key):
 
     return grid
 
-def plot_heatmap(grid, title, cbar_label):
-    """
-    Plots an 8 x 5 heatmap for the room grid.
-    """
 
-    fig, ax = plt.subplots(figsize=(7, 9))
+def interpolate_grid(values_2d):
+    """
+    Interpolates a 2D measurement grid only for smoother colour-map display.
+    """
+    values_2d = np.asarray(values_2d, dtype=np.float64)
+
+    n_rows, n_cols = values_2d.shape
+
+    x = np.arange(n_cols)
+    y = np.arange(n_rows)
+    X, Y = np.meshgrid(x, y)
+
+    interpolation_factor = 10
+
+    xi = np.linspace(0, n_cols - 1, n_cols * interpolation_factor)
+    yi = np.linspace(0, n_rows - 1, n_rows * interpolation_factor)
+    XI, YI = np.meshgrid(xi, yi)
+
+    zi_smooth = griddata(
+        points=(X.ravel(), Y.ravel()),
+        values=values_2d.ravel(),
+        xi=(XI, YI),
+        method="cubic"
+    )
+
+    if np.isnan(zi_smooth).any():
+        zi_nearest = griddata(
+            points=(X.ravel(), Y.ravel()),
+            values=values_2d.ravel(),
+            xi=(XI, YI),
+            method="nearest"
+        )
+        zi_smooth = np.where(np.isnan(zi_smooth), zi_nearest, zi_smooth)
+
+    return zi_smooth
+
+def plot_heatmap(values_2d, title, cbar_label, output_path=None):
+    values_2d = np.asarray(values_2d, dtype=np.float64)
+
+    zi_smooth = interpolate_grid(values_2d)
+
+    fig, ax = plt.subplots(figsize=(9, 5))
 
     im = ax.imshow(
-        grid,
+        zi_smooth,
         origin="upper",
+        extent=[
+            0.5,
+            values_2d.shape[1] + 0.5,
+            values_2d.shape[0] + 0.5,
+            0.5,
+        ],
         aspect="auto",
         cmap="viridis"
     )
 
-    x_labels = ["E", "D", "C", "B", "A"]
-    y_labels = [str(i) for i in range(1, 9)]
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(cbar_label)
 
-    ax.set_xticks(np.arange(5))
-    ax.set_xticklabels(x_labels)
-
-    ax.set_yticks(np.arange(8))
-    ax.set_yticklabels(y_labels)
-
-    ax.set_xlabel("Measurement column")
-    ax.set_ylabel("Measurement row")
     ax.set_title(title)
+    ax.set_xlabel("Measurement position")
+    ax.set_ylabel("Measurement row")
 
-    fig.colorbar(im, ax=ax, label=cbar_label)
+    # Your grid is 8 rows x 5 columns:
+    # rows = 1 to 8
+    # columns = E, D, C, B, A
+    ax.set_xticks(np.arange(1, values_2d.shape[1] + 1))
+    ax.set_xticklabels(["E", "D", "C", "B", "A"][:values_2d.shape[1]])
 
-    # Writing the texts inside the heatmap
-    for row in range(8):
-        for col in range(5):
-            point_name = f"{x_labels[col]}{y_labels[row]}"
-            value = grid[row, col]
-           
-            ax.text(
-                col,
-                row,
-                f"{point_name}\n{value:.2f}",
-                ha="center",
-                va="center",
-                fontsize=8,
-                color="white"
-            )
+    ax.set_yticks(np.arange(1, values_2d.shape[0] + 1))
+    ax.set_yticklabels([str(i) for i in range(1, values_2d.shape[0] + 1)])
+
+    x_points = np.arange(1, values_2d.shape[1] + 1)
+    y_points = np.arange(1, values_2d.shape[0] + 1)
+    Xp, Yp = np.meshgrid(x_points, y_points)
+
+    ax.scatter(
+        Xp.ravel(),
+        Yp.ravel(),
+        marker="",
+        facecolors="none",
+        edgecolors="black",
+        linewidths=0.8
+    )
 
     fig.tight_layout()
+
+    if output_path is not None:
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+
     return fig
 
-def get_octave_bands(freqs: np.ndarray, magnitude_db: np.ndarray, center_freq: float):
-    """
-    Average FFT magnitude inside one octave band.
-    """
-    f_low = center_freq / np.sqrt(2)
-    f_high = center_freq * np.sqrt(2)
-
-    mask = (freqs >= f_low) & (freqs <= f_high)
-
-    if not np.any(mask):
-        return np.nan
-
-    return np.mean(magnitude_db[mask])

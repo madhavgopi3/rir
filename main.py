@@ -51,8 +51,8 @@ def generate_sweep_files(cfg: MeasurementConfig):
     padded_sweep = pad_signal(
         signal=raw_sweep,
         fs=cfg.fs,
-        pre_silence=cfg.pre_silence,
-        post_silence=cfg.post_silence
+        pre_silence=cfg.sweep_pre_silence,
+        post_silence=cfg.sweep_post_silence
         )
 
     inverse_sweep = generate_inverse_filter(
@@ -82,7 +82,7 @@ def process_recording(cfg: MeasurementConfig, padded_sweep, inverse_filter):
     aligned_rec, lag = extract_aligned_segment(padded_sweep, recorded)
 
     # Removing Pre-Silence
-    pre_silence_samples = int(cfg.pre_silence * cfg.fs)
+    pre_silence_samples = int(cfg.sweep_pre_silence * cfg.fs)
     if len(aligned_rec) > pre_silence_samples:
         aligned_active = aligned_rec[pre_silence_samples:]
     aligned_active = aligned_rec
@@ -111,8 +111,8 @@ def process_recording(cfg: MeasurementConfig, padded_sweep, inverse_filter):
     "f_start": cfg.f_start,
     "f_end": cfg.f_end,
     "amplitude": cfg.amplitude,
-    "pre_silence": cfg.pre_silence,
-    "post_silence": cfg.post_silence,
+    "pre_silence": cfg.sweep_pre_silence,
+    "post_silence": cfg.sweep_post_silence,
     "recording_path": str(cfg.recorded_sweep_path),
     "output_dir": str(cfg.output_dir),
     "estimated_lag_samples": int(lag),

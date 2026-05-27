@@ -23,12 +23,12 @@ from visualization import (
     get_rir_at_freq,
     make_grid,
     plot_heatmap,
-    get_octave_bands,
     show_all
 )
 from external_sweep import rir_from_external_sweep
 from harmonic_separation import extract_ir_sweep
 from acoustic_descriptors import extract_room_descriptors
+from band_analysis import freqband_average_db, bandpass_rir
 
 def parse_points(path):
     """
@@ -106,8 +106,8 @@ def main():
         padded_sweep = pad_signal(
             raw_sweep,
             fs=cfg.fs,
-            pre_silence=cfg.pre_silence,
-            post_silence=cfg.post_silence,
+            pre_silence=cfg.sweep_pre_silence,
+            post_silence=cfg.sweep_post_silence,
         )
 
         inverse_filter = generate_inverse_filter(
@@ -220,37 +220,77 @@ def main():
         # COMMON POST-PROCESSING
         # ------------------------------------------------------------
         rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
-            rir_raw,
-            fs=cfg.fs,
-            pre_ms=cfg.rir_trim_pre_ms,
-            min_tail_ms=cfg.rir_min_tail_ms,
-            threshold_over_noise_db=cfg.threshold_over_noise_db,
-            arrival_smooth_ms=cfg.arrival_smooth_ms,
-            tail_smooth_ms=cfg.tail_smooth_ms,
+        rir_raw,
+        fs=cfg.fs,
+        pre_ms=cfg.rir_trim_pre_ms,
+        min_tail_ms=cfg.rir_min_tail_ms,
+        threshold_over_noise_db=cfg.threshold_over_noise_db,
+        arrival_smooth_ms=cfg.arrival_smooth_ms,
+        tail_smooth_ms=cfg.tail_smooth_ms,
+        safety_offset_ms=cfg.safety_offset_ms,
         )
 
         descriptors = extract_room_descriptors(
         rir=rir_trimmed,
-        fs=cfg.fs
-        )
+        fs=cfg.fs,
+        noise_compensate=cfg.descriptor_noise_compensate,
+        direct_sound_search_ms=cfg.direct_sound_search_ms,
+        lundeby_block_ms=cfg.lundeby_block_ms,
+        lundeby_tail_fraction=cfg.lundeby_tail_fraction,
+        lundeby_margin_db=cfg.lundeby_margin_db,
+        lundeby_max_iter=cfg.lundeby_max_iter,
+)
 
         freqs, magnitude_db = compute_fft_rir(
-        h=rir_raw,
+        h=rir_trimmed,
         fs=cfg.fs,
-        n_fft=262144,
+        n_fft=cfg.n_fft,
         )
 
-        oct_125 = get_octave_bands(freqs, magnitude_db, 125)
-        oct_250 = get_octave_bands(freqs, magnitude_db, 250)
-        oct_500 = get_octave_bands(freqs, magnitude_db, 500)
-        oct_1000 = get_octave_bands(freqs, magnitude_db, 1000)
-        oct_2000 = get_octave_bands(freqs, magnitude_db, 2000)
-        oct_4000 = get_octave_bands(freqs, magnitude_db, 4000)
+        magnitude_spl = magnitude_db + cfg.spl_db_offset
+
+        band_response_values = {}
+        band_descriptor_values = {}
+
+        for centre in cfg.band_centres:
+            band_response_values[f"{centre}Hz_fr_db"] = freqband_average_db(
+                freqs,
+                magnitude_spl,
+                centre,
+                cfg.band_fraction,
+            )
+
+            filtered_rir = bandpass_rir(
+                rir_trimmed,
+                cfg.fs,
+                centre,
+                cfg.band_fraction,
+                order=cfg.band_filter_order,
+            )
+
+            band_desc = extract_room_descriptors(
+                rir=filtered_rir,
+                fs=cfg.fs,
+                noise_compensate=cfg.descriptor_noise_compensate,
+                direct_sound_search_ms=cfg.direct_sound_search_ms,
+                lundeby_block_ms=cfg.lundeby_block_ms,
+                lundeby_tail_fraction=cfg.lundeby_tail_fraction,
+                lundeby_margin_db=cfg.lundeby_margin_db,
+                lundeby_max_iter=cfg.lundeby_max_iter,
+                direct_index=descriptors["direct_index"],
+            )
+
+            band_descriptor_values[f"{centre}Hz_edt"] = band_desc["edt"]
+            band_descriptor_values[f"{centre}Hz_rt20"] = band_desc["rt20"]
+            band_descriptor_values[f"{centre}Hz_rt30"] = band_desc["rt30"]
+            band_descriptor_values[f"{centre}Hz_t20_r2"] = band_desc["t20_r2"]
+            band_descriptor_values[f"{centre}Hz_t30_r2"] = band_desc["t30_r2"]
+        
 
         rir_trimmed_norm = normalize_rir(rir_trimmed)
 
         if point_name in ["C3", "C4"]:
-                freq_1k, magn_1k = get_rir_at_freq(h = rir_raw, fs = cfg.fs, freq = 1000, n_fft = 262144)
+                freq_1k, magn_1k = get_rir_at_freq(freqs, magnitude_db, 1000)
                 print(f"Freq at {freq_1k:2f} is {magn_1k:2f}")
 
         # ------------------------------------------------------------
@@ -296,8 +336,8 @@ def main():
             ),
             "frequency_response": plot_fft_rir(
                 freqs,
-                magnitude_db,
-                f"Frequency Response from RIR - {point_name}"
+                magnitude_spl,
+                f"Frequency Response from RIR - {point_name} [dB SPL]"
             ),
             "edc": plot_edc(
                 edc,
@@ -331,19 +371,21 @@ def main():
             "trimmed_length_samples": len(rir_trimmed_norm),
             "trimmed_length_seconds": len(rir_trimmed_norm) / cfg.fs,
 
-            "rt20": descriptors["rt20"],
-            "rt30": descriptors["rt30"],
-            "c50": descriptors["c50"],
-            "c80": descriptors["c80"],
-            "d50": descriptors["d50"],
-            "ts_ms": descriptors["ts_ms"],
-
-            "oct_125": oct_125,
-            "oct_250": oct_250,
-            "oct_500": oct_500,
-            "oct_1000": oct_1000,
-            "oct_2000": oct_2000,
-            "oct_4000": oct_4000,
+            "broadband_edt": descriptors["edt"],
+            "broadband_rt20": descriptors["rt20"],
+            "broadband_rt30": descriptors["rt30"],
+            "broadband_c50": descriptors["c50"],
+            "broadband_c80": descriptors["c80"],
+            "broadband_d50": descriptors["d50"],
+            "broadband_ts_ms": descriptors["ts_ms"],
+            "direct_index": descriptors["direct_index"],
+            "lundeby_knee_s": descriptors["lundeby_knee_s"],
+            "noise_db": descriptors["noise_db"],
+            "broadband_edt_r2": descriptors["edt_r2"],
+            "broadband_t20_r2": descriptors["t20_r2"],
+            "broadband_t30_r2": descriptors["t30_r2"],      
+            **band_response_values,
+            **band_descriptor_values,
         })
 
         print(f"Finished {point_name}")
@@ -354,22 +396,36 @@ def main():
     # CREATE OCTAVE BAND & DESCRIPTOR HEATMAPS
     # ------------------------------------------------------------
 
-    octave_bands = {
-        "oct_125": "125 Hz",
-        "oct_250": "250 Hz",
-        "oct_500": "500 Hz",
-        "oct_1000": "1000 Hz",
-        "oct_2000": "2000 Hz",
-        "oct_4000": "4000 Hz",
-    }
+    #Banded Frequency Response Heatmaps
 
-    for key, label in octave_bands.items():
+    for centre in cfg.band_centres:
+        key = f"{centre}Hz_fr_db"
+
         grid = make_grid(results, key)
 
         fig = plot_heatmap(
             grid,
-            title=f"Octave Band Frequency Response - {label}",
-            cbar_label="Magnitude [dB]",
+            title=f"{centre} Hz Frequency Response Across Measurement Grid",
+            cbar_label="Magnitude [dB SPL]",
+        )
+
+        save_figure(
+            fig,
+            output_dirs["heatmaps"] / f"{key}_heatmap.png",
+            dpi=150,
+            close=True,
+        )
+        
+    # Banded RT30 heatmaps
+    for centre in cfg.band_centres:
+        key = f"{centre}Hz_rt30"
+
+        grid = make_grid(results, key)
+
+        fig = plot_heatmap(
+            grid,
+            title=f"{centre} Hz RT30 Across Measurement Grid",
+            cbar_label="RT30 [s]",
         )
 
         save_figure(
@@ -379,21 +435,20 @@ def main():
             close=True,
         )
 
-    heatmap_descriptors = {
-        "rt20": "RT20 [s]",
-        "rt30": "RT30 [s]",
-        "c50": "C50 [dB]",
-        "c80": "C80 [dB]",
-        "d50": "D50 [-]",
-        "ts_ms": "Centre Time [ms]",
+
+    # Broadband summary heatmaps
+    broadband_heatmaps = {
+        "broadband_rt30": "Broadband RT30 [s]",
+        "broadband_edt": "Broadband EDT [s]",
+        "broadband_c50": "Broadband C50 [dB]",
     }
 
-    for key, label in heatmap_descriptors.items():
+    for key, label in broadband_heatmaps.items():
         grid = make_grid(results, key)
 
         fig = plot_heatmap(
             grid,
-            title=f"{key.upper()} Across Measurement Grid",
+            title=f"{label} Across Measurement Grid",
             cbar_label=label,
         )
 
@@ -403,11 +458,10 @@ def main():
             dpi=150,
             close=True,
         )
-
     # ------------------------------------------------------------
     # SAVE CSV
     # ------------------------------------------------------------
-    csv_path = output_dirs["csv"] / "batch_results.csv"
+    csv_path = output_dirs["csv"] / f"batch_results_fraction_{cfg.band_fraction}.csv"
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=results[0].keys())
