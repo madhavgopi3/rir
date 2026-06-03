@@ -5,9 +5,9 @@ def octave_edges(center_freq, fraction):
     """
     Returns lower and upper frequency limits for a fractional-octave band.
 
-    fraction = 1 -> octave
-    fraction = 3 -> third-octave
-    fraction = 6 -> sixth-octave
+    fraction = 1 is octave
+    fraction = 3 is third-octave
+    fraction = 6 is sixth-octave
     """
     factor = 2.0 ** (1.0 / (2.0 * fraction))
 

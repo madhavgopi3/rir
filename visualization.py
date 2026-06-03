@@ -292,7 +292,7 @@ def interpolate_grid(values_2d):
 
     return zi_smooth
 
-def plot_heatmap(values_2d, title, cbar_label, output_path=None):
+def plot_heatmap(values_2d, title, cbar_label, output_path=None, vmin = None, vmax = None):
     values_2d = np.asarray(values_2d, dtype=np.float64)
 
     zi_smooth = interpolate_grid(values_2d)
@@ -309,7 +309,9 @@ def plot_heatmap(values_2d, title, cbar_label, output_path=None):
             0.5,
         ],
         aspect="auto",
-        cmap="viridis"
+        cmap="viridis",
+        vmin = vmin,
+        vmax = vmax
     )
 
     cbar = fig.colorbar(im, ax=ax)

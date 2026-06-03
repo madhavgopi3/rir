@@ -1,9 +1,7 @@
 import numpy as np
 from scipy.signal import hilbert
 
-
 EPS = 1e-30
-
 
 def _as_1d_float(x):
     return np.asarray(x, dtype=np.float64).squeeze()
@@ -13,17 +11,9 @@ def _power_to_db(x):
     return 10.0 * np.log10(np.maximum(x, EPS))
 
 
-def _db_to_power(x_db):
-    return 10.0 ** (x_db / 10.0)
-
-
 def find_direct_sound_index(rir, fs, search_ms=20.0):
     """
     Finds the direct sound / main arrival using the smoothed Hilbert envelope.
-
-    This is mainly useful when the RIR contains a little pre-arrival silence.
-    If your trimmed RIR already starts at the direct sound, this will usually
-    return an index very close to 0.
     """
     h = _as_1d_float(rir)
 
@@ -62,7 +52,7 @@ def lundeby_knee(
     max_iter,
 ):
     """
-    Simple Lundeby-style knee estimate.
+    Lundeby-style knee estimate.
 
     Returns:
         knee_sample: sample where decay meets the estimated noise floor
@@ -150,9 +140,7 @@ def schroeder_edc_db(
     Returns a normalized Schroeder Energy Decay Curve in dB.
 
     If noise_compensate=True:
-    - finds a Lundeby-style knee,
-    - integrates only to the knee,
-    - subtracts the expected accumulated noise energy from the backward integral.
+    - finds a Lundeby-style knee and integrates only to the knee
     """
     h = _as_1d_float(rir)
     n = len(h)
@@ -200,44 +188,46 @@ def schroeder_edc_db(
     return edc_db, knee, noise_power, noise_db
 
 
-def decay_time_from_edc(edc_db, fs, upper_db, lower_db):
-    """
-    Fits a straight line to the EDC between upper_db and lower_db.
-
-    EDT: upper=0, lower=-10, result multiplied to RT60 equivalent.
-    T20: upper=-5, lower=-25.
-    T30: upper=-5, lower=-35.
-
-    Returns:
-        rt60_equivalent, slope, intercept, r2
-    """
+def decay_time_from_edc(
+    edc_db,
+    fs,
+    upper_db,
+    lower_db,
+    min_points=50,
+    min_r2=0.90,
+    min_rt=0.03,
+    max_rt=3.0,
+):
     edc_db = _as_1d_float(edc_db)
 
-    if len(edc_db) == 0:
-        return np.nan, np.nan, np.nan, np.nan
-
     t = np.arange(len(edc_db), dtype=np.float64) / fs
+
     idx = np.where((edc_db <= upper_db) & (edc_db >= lower_db))[0]
 
-    if len(idx) < 2:
-        return np.nan, np.nan, np.nan, np.nan
+    if len(idx) < min_points:
+        return np.nan
 
     x = t[idx]
     y = edc_db[idx]
 
     slope, intercept = np.polyfit(x, y, 1)
 
-    if slope >= 0:
-        return np.nan, slope, intercept, np.nan
+    if not np.isfinite(slope) or slope >= 0:
+        return np.nan
 
-    y_hat = slope * x + intercept
-    ss_res = np.sum((y - y_hat) ** 2)
+    y_fit = slope * x + intercept
+
+    ss_res = np.sum((y - y_fit) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r2 = 1.0 - ss_res / (ss_tot + EPS)
+
+    if ss_tot <= 0:
+        return np.nan
+
+    r2 = 1.0 - ss_res / ss_tot
 
     rt60 = -60.0 / slope
 
-    return rt60, slope, intercept, r2
+    return rt60
 
 
 def clarity_c50(rir, fs, direct_index=0):
@@ -280,9 +270,6 @@ def definition_d50(rir, fs, direct_index=0):
 
 
 def center_time_ts(rir, fs, direct_index=0):
-    """
-    Centre time in milliseconds, measured from the direct sound.
-    """
     h = _as_1d_float(rir)
     energy = h ** 2
 
@@ -314,7 +301,6 @@ def extract_room_descriptors(
         c50, c80 in dB
         d50 as a ratio from 0 to 1
         ts_ms in milliseconds
-        plus useful diagnostic values
     """
     h = _as_1d_float(rir)
 
@@ -337,9 +323,9 @@ def extract_room_descriptors(
     max_iter=lundeby_max_iter,
 )
 
-    edt, edt_slope, edt_intercept, edt_r2 = decay_time_from_edc(edc_db, fs, -1.0, -10.0)
-    rt20, t20_slope, t20_intercept, t20_r2 = decay_time_from_edc(edc_db, fs, -5.0, -25.0)
-    rt30, t30_slope, t30_intercept, t30_r2 = decay_time_from_edc(edc_db, fs, -5.0, -35.0)
+    edt = decay_time_from_edc(edc_db, fs, -1.0, -10.0)
+    rt20 = decay_time_from_edc(edc_db, fs, -5.0, -25.0)
+    rt30 = decay_time_from_edc(edc_db, fs, -5.0, -35.0)
 
     return {
         "edt": edt,
@@ -356,10 +342,6 @@ def extract_room_descriptors(
         "lundeby_knee_s": knee / fs,
         "noise_power": noise_power,
         "noise_db": noise_db,
-
-        "edt_r2": edt_r2,
-        "t20_r2": t20_r2,
-        "t30_r2": t30_r2,
     }
 
 

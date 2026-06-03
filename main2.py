@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
 
 from config import MeasurementConfig
 
@@ -252,6 +253,7 @@ def main():
         band_response_values = {}
         band_descriptor_values = {}
 
+        # Frequency-response band values
         for centre in cfg.band_centres:
             band_response_values[f"{centre}Hz_fr_db"] = freqband_average_db(
                 freqs,
@@ -260,6 +262,9 @@ def main():
                 cfg.band_fraction,
             )
 
+
+        # Banded acoustic descriptors
+        for centre in cfg.rt_band_centres:
             filtered_rir = bandpass_rir(
                 rir_trimmed,
                 cfg.fs,
@@ -283,8 +288,6 @@ def main():
             band_descriptor_values[f"{centre}Hz_edt"] = band_desc["edt"]
             band_descriptor_values[f"{centre}Hz_rt20"] = band_desc["rt20"]
             band_descriptor_values[f"{centre}Hz_rt30"] = band_desc["rt30"]
-            band_descriptor_values[f"{centre}Hz_t20_r2"] = band_desc["t20_r2"]
-            band_descriptor_values[f"{centre}Hz_t30_r2"] = band_desc["t30_r2"]
         
 
         rir_trimmed_norm = normalize_rir(rir_trimmed)
@@ -381,9 +384,6 @@ def main():
             "direct_index": descriptors["direct_index"],
             "lundeby_knee_s": descriptors["lundeby_knee_s"],
             "noise_db": descriptors["noise_db"],
-            "broadband_edt_r2": descriptors["edt_r2"],
-            "broadband_t20_r2": descriptors["t20_r2"],
-            "broadband_t30_r2": descriptors["t30_r2"],      
             **band_response_values,
             **band_descriptor_values,
         })
@@ -398,6 +398,21 @@ def main():
 
     #Banded Frequency Response Heatmaps
 
+    frequency_heatmap_values = []
+
+    for centre in cfg.band_centres:
+        key = f"{centre}Hz_fr_db"
+
+        for item in results:
+            frequency_heatmap_values.append(item[key])
+
+    frequency_heatmap_values = np.asarray(frequency_heatmap_values, dtype=np.float64)
+
+    freq_vmin = np.nanpercentile(frequency_heatmap_values, 5)
+    freq_vmax = np.nanpercentile(frequency_heatmap_values, 95)
+
+    print(f"Frequency heatmap colour scale: {freq_vmin:.2f} to {freq_vmax:.2f} dB")
+
     for centre in cfg.band_centres:
         key = f"{centre}Hz_fr_db"
 
@@ -407,6 +422,8 @@ def main():
             grid,
             title=f"{centre} Hz Frequency Response Across Measurement Grid",
             cbar_label="Magnitude [dB SPL]",
+            vmin=freq_vmin,
+            vmax=freq_vmax,
         )
 
         save_figure(
@@ -417,7 +434,24 @@ def main():
         )
         
     # Banded RT30 heatmaps
-    for centre in cfg.band_centres:
+
+    rt_heatmap_values = []
+
+    for centre in cfg.rt_band_centres:
+        key = f"{centre}Hz_rt30"
+
+        for item in results:
+            rt_heatmap_values.append(item[key])
+
+    rt_heatmap_values = np.asarray(rt_heatmap_values, dtype=np.float64)
+
+    rt_vmin = np.nanpercentile(rt_heatmap_values, 5)
+    rt_vmax = np.nanpercentile(rt_heatmap_values, 95)
+
+    print(f"RT30 heatmap colour scale: {rt_vmin:.2f} to {rt_vmax:.2f} s")
+
+    # Then plot each RT30 heatmap using the same colour scale
+    for centre in cfg.rt_band_centres:
         key = f"{centre}Hz_rt30"
 
         grid = make_grid(results, key)
@@ -426,6 +460,8 @@ def main():
             grid,
             title=f"{centre} Hz RT30 Across Measurement Grid",
             cbar_label="RT30 [s]",
+            vmin=rt_vmin,
+            vmax=rt_vmax,
         )
 
         save_figure(
@@ -434,7 +470,6 @@ def main():
             dpi=150,
             close=True,
         )
-
 
     # Broadband summary heatmaps
     broadband_heatmaps = {
