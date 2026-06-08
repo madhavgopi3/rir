@@ -1,7 +1,10 @@
-folder_name/
 
 recorded/
 output/
 images/
 sweep1/
 sweep2/
+
+harmonic_separation.py
+timing_calibration.py
+main.py

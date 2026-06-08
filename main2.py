@@ -90,9 +90,8 @@ def main():
 
     results = []
 
-    # ------------------------------------------------------------
     # GENERATED SWEEP MODE
-    # ------------------------------------------------------------
+
     if not cfg.use_external_sweep:
         raw_sweep = generate_log_sweep(
             fs=cfg.fs,
@@ -141,10 +140,7 @@ def main():
             dpi=150,
         )
 
-    # ------------------------------------------------------------
-    # EXTERNAL SWEEP MODE
-    # ------------------------------------------------------------
-    
+    # EXTERNAL SWEEP MODE  
     
     else:
         sweep_for_plot, _ = load_audio(
@@ -216,10 +212,8 @@ def main():
             sweep_response=aligned_recording,
             inverse_sweep=inverse_filter,
 )
-
-        # ------------------------------------------------------------
         # COMMON POST-PROCESSING
-        # ------------------------------------------------------------
+        
         rir_trimmed, trim_start, trim_end, peak_idx, envelope = trim_rir_robust(
         rir_raw,
         fs=cfg.fs,
@@ -296,9 +290,8 @@ def main():
                 freq_1k, magn_1k = get_rir_at_freq(freqs, magnitude_db, 1000)
                 print(f"Freq at {freq_1k:2f} is {magn_1k:2f}")
 
-        # ------------------------------------------------------------
         # SAVE AUDIO
-        # ------------------------------------------------------------
+
         save_audio(
             output_dirs["rir_wav"] / f"{point_name}_rir_raw.wav",
             normalize_for_saving(rir_raw),
@@ -311,9 +304,8 @@ def main():
             cfg.fs,
         )
 
-        # ------------------------------------------------------------
         # CREATE PLOTS
-        # ------------------------------------------------------------
+
         edc = energy_curve(rir_trimmed)
 
         figures = {
@@ -356,9 +348,8 @@ def main():
             dpi=150,
         )
 
-        # ------------------------------------------------------------
         # SAVE RESULTS FOR CSV
-        # ------------------------------------------------------------
+        
         results.append({
             "point": point_name,
             "row_label": row_label,
@@ -392,9 +383,7 @@ def main():
         print(f"Lag: {lag} samples ({lag / cfg.fs:.4f} s)")
         print(f"Clipped: {clipped}")
 
-    # ------------------------------------------------------------
     # CREATE OCTAVE BAND & DESCRIPTOR HEATMAPS
-    # ------------------------------------------------------------
 
     #Banded Frequency Response Heatmaps
 
@@ -493,9 +482,9 @@ def main():
             dpi=150,
             close=True,
         )
-    # ------------------------------------------------------------
+        
     # SAVE CSV
-    # ------------------------------------------------------------
+    
     csv_path = output_dirs["csv"] / f"batch_results_fraction_{cfg.band_fraction}.csv"
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
