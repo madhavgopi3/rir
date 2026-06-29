@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 ## Usage
 
-Recorded `.wav` files should be placed in the recordings folder, using grid-style names such as:
+Recorded `.wav` files should be placed in the recordings folder (sweep1 by default), using grid-style names such as:
 
 ```text
 A1.wav
