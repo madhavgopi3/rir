@@ -37,6 +37,7 @@ E8.wav
 
 Two sample datasets can be found in the folders "sweep1" and "sweep2". They are two different sweeps captured in a treated recording room across an 8 * 5 grid with the parameters:
 
+```text
 ### sweep1: Generated sweep by the pipeline
 fs = 48000
 sweep_duration = 10.0
@@ -50,6 +51,7 @@ f_start2 = 50
 f_end2 = 22000
 amplitude = 0.8
 external_sweep_path = "sweep_48000_50_22000.wav"
+```
 
 <img alt="Room_Drawing" src="https://github.com/user-attachments/assets/2ebbd972-e4b8-49fe-a64f-dca345b4d4ef"/>
 
