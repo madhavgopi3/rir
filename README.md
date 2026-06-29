@@ -54,7 +54,9 @@ amplitude = 0.8
 external_sweep_path = "sweep_48000_50_22000.wav"
 ```
 
-<img alt="Room_Drawing" src="https://github.com/user-attachments/assets/2ebbd972-e4b8-49fe-a64f-dca345b4d4ef" width="300"/>
+<img alt="Room_Drawing" src="https://github.com/user-attachments/assets/2ebbd972-e4b8-49fe-a64f-dca345b4d4ef" width="400"/>
+
+<p><em>Figure 1: Measurement room layout used for the spatial acoustic analysis.</em></p>
 
 Run the main pipeline:
 
