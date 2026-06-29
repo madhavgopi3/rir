@@ -445,43 +445,36 @@ def main(cfg=None):
             close=True,
         )
         
-    # Banded RT30 heatmaps
+    # Banded octave heatmaps: RT30, C50, C80
+    band_heatmaps = [
+        ("rt30", "RT30 [s]"),
+        ("c50",  "C50 [dB]"),
+        ("c80",  "C80 [dB]"),
+    ]
 
-    rt_heatmap_values = []
+    for descriptor, label in band_heatmaps:
+        # common scale for the descriptor (not shared across descriptors), across all bands and points
+        vals = []
+        for centre in cfg.rt_band_centres:
+            key = f"{centre}Hz_{descriptor}"
+            for item in results:
+                vals.append(item[key])
+        vals = np.asarray(vals, dtype=np.float64)
+        vmin = np.nanpercentile(vals, 5)
+        vmax = np.nanpercentile(vals, 95)
+        print(f"{descriptor.upper()} heatmap scale: {vmin:.2f} to {vmax:.2f}")
 
-    for centre in cfg.rt_band_centres:
-        key = f"{centre}Hz_rt30"
-
-        for item in results:
-            rt_heatmap_values.append(item[key])
-
-    rt_heatmap_values = np.asarray(rt_heatmap_values, dtype=np.float64)
-
-    rt_vmin = np.nanpercentile(rt_heatmap_values, 5)
-    rt_vmax = np.nanpercentile(rt_heatmap_values, 95)
-
-    print(f"RT30 heatmap colour scale: {rt_vmin:.2f} to {rt_vmax:.2f} s")
-
-    # Then plot each RT30 heatmap using the same colour scale
-    for centre in cfg.rt_band_centres:
-        key = f"{centre}Hz_rt30"
-
-        grid = make_grid(results, key)
-
-        fig = plot_heatmap(
-            grid,
-            title=f"{centre} Hz RT30 Across Measurement Grid",
-            cbar_label="RT30 [s]",
-            vmin=rt_vmin,
-            vmax=rt_vmax,
-        )
-
-        save_figure(
-            fig,
-            output_dirs["heatmaps"] / f"{key}_heatmap.png",
-            dpi=150,
-            close=True,
-        )
+        for centre in cfg.rt_band_centres:
+            key = f"{centre}Hz_{descriptor}"
+            grid = make_grid(results, key)
+            fig = plot_heatmap(
+                grid,
+                title=f"{centre} Hz {descriptor.upper()} Across Measurement Grid",
+                cbar_label=label,
+                vmin=vmin,
+                vmax=vmax,
+            )
+            save_figure(fig, output_dirs["heatmaps"] / f"{key}_heatmap.png", dpi=150, close=True)
 
     # Broadband summary heatmaps
     broadband_heatmaps = {
