@@ -51,7 +51,7 @@ f_end2 = 22000
 amplitude = 0.8
 external_sweep_path = "sweep_48000_50_22000.wav"
 
-<img src="images/<img alt="Room_Drawing" src="https://github.com/user-attachments/assets/2ebbd972-e4b8-49fe-a64f-dca345b4d4ef" />"
+<img alt="Room_Drawing" src="https://github.com/user-attachments/assets/2ebbd972-e4b8-49fe-a64f-dca345b4d4ef"/>
 
 Run the main pipeline:
 
