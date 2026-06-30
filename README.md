@@ -18,7 +18,7 @@
 ## Installation
 
 ```bash
-git clone https://github.com/madhavgopi3/rir-toolkit
+git clone https://github.com/madhavgopi3/rir-toolkit.git
 cd rir-toolkit
 pip install -r requirements.txt
 ```
@@ -45,12 +45,12 @@ f_start = 20
 f_end = 20000
 amplitude = 0.8
 ```
-### sweep2 (External sweep file): 
+### sweep2: External sweep file 
 ```text
 fs = 48000
+sweep_duration = 10.0
 f_start2 = 50
 f_end2 = 22000
-amplitude = 0.8
 external_sweep_path = "sweep_48000_50_22000.wav"
 ```
 
