@@ -18,8 +18,8 @@
 ## Installation
 
 ```bash
-git clone https://github.com/your-username/open-rir-mapper.git
-cd open-rir-mapper
+git clone https://github.com/madhavgopi3/rir-toolkit
+cd rir-toolkit
 pip install -r requirements.txt
 ```
 
